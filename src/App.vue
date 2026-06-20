@@ -1,19 +1,36 @@
 <template>
-  <div>
-    <SiteNav     :personal="personal" />
-    <HeroSection :personal="personal" />
-    <ExpSection  :experience="experience" />
-    <CertSection :certifications="certifications" :personal="personal" />
-    <SiteFooter  :personal="personal" />
+  <div class="app-layout">
+    <SiteNav :personal="personal" />
+    
+    <!-- Route transitions -->
+    <router-view v-slot="{ Component }">
+      <transition name="fade" mode="out-in">
+        <component :is="Component" :personal="personal" />
+      </transition>
+    </router-view>
   </div>
 </template>
 
 <script setup>
-import SiteNav     from './components/SiteNav.vue'
-import HeroSection from './components/HeroSection.vue'
-import ExpSection  from './components/ExpSection.vue'
-import CertSection from './components/CertSection.vue'
-import SiteFooter  from './components/SiteFooter.vue'
-
-import { personal, experience, certifications } from './portfolio.config.js'
+import SiteNav from './components/SiteNav.vue'
+import { personal } from './portfolio.config.js'
 </script>
+
+<style scoped>
+.app-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 250ms ease, transform 250ms ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+</style>

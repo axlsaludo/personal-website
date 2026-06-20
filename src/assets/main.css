@@ -6,6 +6,7 @@
 :root {
   --font-display: 'Fraunces', Georgia, serif;
   --font-body:    'Lora', Georgia, serif;
+  --font-mono:    'Geist Mono', monospace; /* keeping mono just in case, though unused now */
 
   /* Warm cream — book paper, not clinical white */
   --bg:           #f0ece4;
@@ -48,8 +49,8 @@ button { font-family: var(--font-body); cursor: pointer; border: none; backgroun
 ::-webkit-scrollbar-thumb { background: var(--border); }
 
 /* ── Utilities ─────────────────────────── */
-.hi      { background: var(--hi);      padding: 0 4px 2px; border-radius: 2px; }
-.hi-warm { background: var(--hi-warm); padding: 0 4px 2px; border-radius: 2px; }
+.hi      { background: var(--hi);      padding: 0 4px; border-radius: 2px; }
+.hi-warm { background: var(--hi-warm); padding: 0 4px; border-radius: 2px; }
 
 /* Book-character: small-caps labels */
 .label-sc {
@@ -61,16 +62,16 @@ button { font-family: var(--font-body); cursor: pointer; border: none; backgroun
   display: block;
 }
 
-/* Eyebrow — centered, like reference */
+/* Eyebrow */
 .eyebrow {
-  text-align: center;
+  text-align: left;
   font-family: var(--font-body);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-light);
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 /* ── Container ─────────────────────────── */
@@ -94,7 +95,7 @@ button { font-family: var(--font-body); cursor: pointer; border: none; backgroun
   line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--ink);
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 /* ── Two-column body (reference style) ─── */
