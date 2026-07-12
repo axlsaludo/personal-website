@@ -3,8 +3,6 @@ import Home from './views/Home.vue'
 
 const routes = [
   { path: '/', component: Home },
-  { path: '/experience', component: () => import('./views/Experience.vue') },
-  { path: '/credentials', component: () => import('./views/Credentials.vue') },
 ]
 
 export const router = createRouter({

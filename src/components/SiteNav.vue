@@ -1,20 +1,9 @@
 <template>
   <nav class="nav">
-    <!-- Logo — small italic initial, like reference -->
+    <!-- Logo — monospace terminal style -->
     <router-link to="/" class="logo">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <rect width="28" height="28" rx="4" fill="var(--ink)"/>
-        <text x="7" y="20" font-family="Georgia,serif" font-size="14"
-              font-style="italic" fill="var(--bg)">axl-saludo</text>
-      </svg>
+      <span class="logo-bracket">[</span><span class="logo-text">0xffxa</span><span class="logo-bracket">]</span>
     </router-link>
-
-    <!-- Nav items — router links -->
-    <ul class="nav-links">
-      <li><router-link to="/"            class="nav-item" active-class="nav-pill" exact>Intro</router-link></li>
-      <li><router-link to="/experience"  class="nav-item" active-class="nav-pill">Experience</router-link></li>
-      <li><router-link to="/credentials" class="nav-item" active-class="nav-pill">Credentials</router-link></li>
-    </ul>
   </nav>
 </template>
 
@@ -24,16 +13,31 @@ defineProps({ personal: Object })
 
 <style scoped>
 .nav {
-  position: absolute;
+  position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 44px;
+  padding: 24px 48px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(10,10,15,0.6);
+  border-bottom: 1px solid var(--border);
 }
 
-.logo { display: flex; align-items: center; }
+.logo {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  transition: opacity var(--transition);
+}
+.logo:hover { opacity: 0.7; }
+.logo-bracket { color: var(--ink-light); }
+.logo-text { color: var(--ink); }
 
 .nav-links {
   display: flex;
@@ -42,26 +46,31 @@ defineProps({ personal: Object })
 }
 
 .nav-item {
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--ink-mid);
-  padding: 5px 14px;
-  border-radius: 4px;
-  transition: color var(--transition);
+  color: var(--ink-light);
+  padding: 6px 14px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
 }
-.nav-item:hover { color: var(--ink); }
+.nav-item:hover {
+  color: var(--ink-mid);
+  border-color: var(--border);
+}
 
-/* Vue router sets active-class automatically */
 .nav-pill {
   background: var(--ink);
-  color: var(--bg);
+  color: var(--bg) !important;
+  border-color: var(--ink) !important;
 }
-.nav-pill:hover { color: var(--bg); }
+.nav-pill:hover { color: var(--bg) !important; }
 
 @media (max-width: 480px) {
-  .nav { padding: 20px 20px; }
+  .nav { padding: 18px 20px; }
+  .nav-item { font-size: 10px; padding: 5px 10px; }
 }
 </style>

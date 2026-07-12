@@ -21,16 +21,18 @@ import { personal } from './portfolio.config.js'
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 250ms ease, transform 250ms ease;
+  transition: opacity 350ms cubic-bezier(0.4, 0, 0.2, 1), transform 350ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(14px);
 }
 </style>
