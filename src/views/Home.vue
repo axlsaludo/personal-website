@@ -2,7 +2,7 @@
   <div class="home-page">
     <div class="container h-full">
       <div class="intro-content">
-        
+
         <!-- ASCII Hero Art -->
         <div class="reveal hero-ascii" ref="heroEl">
           <div class="hero-meta">
@@ -15,13 +15,12 @@
           <!-- Column 1: Philosophy -->
           <div class="col-left">
             <h2 class="body-para tech-statement">
-              Simply put, I believe <span class="hi">good engineering</span> isn't just
-              writing code. Having worked in the field for <span class="hi">{{ experienceDuration }}</span>, I've seen that it's a combination of problem solving and
-              <span class="hi">systems thinking</span> — and more over, work done right,
-              <span class="hi-warm">has impact.</span> It shapes products, informs
-              scale, and inspires trust. And let me tell you, <span class="hi">I do it right.</span>
+              With <span class="hi">{{ experienceDuration }}</span> of experience, I've always had a passion for building things.
+              Whether it's crafting resilient infrastructure, automating workflows, or designing clean architectures, I believe that
+              <span class="hi-warm">good engineering</span> is about solving real problems. It shapes products, informs scale,
+              and inspires trust.
             </h2>
-            
+
             <div class="contact-links">
               <span class="label-sc detail-label">links</span>
               <ul class="social-links-list">
@@ -32,10 +31,10 @@
               </ul>
             </div>
           </div>
-          
+
           <!-- Column 2: Live Details -->
           <div class="col-right">
-            
+
             <!-- Current Experience -->
             <div class="current-exp" v-if="currentJob">
               <span class="label-sc detail-label">current role</span>
@@ -48,7 +47,7 @@
             <!-- Top Certifications -->
             <div class="top-certs" style="margin-top: 36px;">
               <span class="label-sc detail-label">latest certifications</span>
-              
+
               <div v-if="loading" class="body-para" style="font-size: 12px;">Fetching from Credly...</div>
               <div v-else-if="error" class="body-para" style="font-size: 12px; color: #665555;">Unavailable</div>
               <div v-else class="compact-certs">
@@ -57,7 +56,7 @@
                   <span class="mini-cert-name">{{ badge.badge_template.name }}</span>
                 </div>
               </div>
-              
+
               <a :href="personal?.socials?.find(s => s.label === 'Credly')?.url" target="_blank" rel="noopener" class="text-link sm-link" style="margin-top: 10px; display: inline-block;">
                 view all badges on Credly ↗
               </a>
@@ -99,7 +98,7 @@ const bodyEl = ref(null)
 
 onMounted(() => {
   fetchBadges()
-  
+
   const els = [heroEl, bodyEl]
   els.forEach((el, i) => {
     if (!el.value) return
@@ -259,7 +258,6 @@ onMounted(() => {
   width: 30px;
   height: 30px;
   object-fit: contain;
-  filter: grayscale(100%) brightness(1.2);
 }
 
 .mini-cert-name {
