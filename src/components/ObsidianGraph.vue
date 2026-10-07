@@ -8,12 +8,95 @@
 
       <div class="graph-controls">
         <div class="zoom-btn-group">
+          <button
+            class="ctrl-btn"
+            :class="{ active: showSettings }"
+            @click="showSettings = !showSettings"
+            title="Adjust Physics &amp; Node Sizes"
+          >
+            ⚙ Settings
+          </button>
           <button class="ctrl-btn" @click="zoomIn" title="Zoom in">+</button>
           <button class="ctrl-btn" @click="zoomOut" title="Zoom out">−</button>
           <button class="ctrl-btn" @click="resetGraph" title="Reset view">↺ Reset</button>
         </div>
       </div>
     </div>
+
+    <!-- Obsidian Physics & Sizing Drawer (Collapsible) -->
+    <transition name="slide-fade">
+      <div v-if="showSettings" class="settings-drawer">
+        <div class="settings-grid">
+          <!-- Node Size -->
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <span class="setting-label">Node Size</span>
+              <span class="setting-value">{{ config.baseNodeRadius }}px</span>
+            </div>
+            <input
+              type="range"
+              min="3"
+              max="12"
+              step="0.5"
+              v-model.number="config.baseNodeRadius"
+              @input="onConfigChange"
+              class="setting-slider"
+            />
+          </div>
+
+          <!-- Repellant / Repulsion -->
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <span class="setting-label">Repellant Force</span>
+              <span class="setting-value">{{ Math.abs(config.repulsionStrength) }}</span>
+            </div>
+            <input
+              type="range"
+              min="-800"
+              max="-100"
+              step="20"
+              v-model.number="config.repulsionStrength"
+              @input="onConfigChange"
+              class="setting-slider"
+            />
+          </div>
+
+          <!-- Link Distance -->
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <span class="setting-label">Link Distance</span>
+              <span class="setting-value">{{ config.linkDistance }}px</span>
+            </div>
+            <input
+              type="range"
+              min="40"
+              max="160"
+              step="5"
+              v-model.number="config.linkDistance"
+              @input="onConfigChange"
+              class="setting-slider"
+            />
+          </div>
+
+          <!-- Center Gravity -->
+          <div class="setting-item">
+            <div class="setting-label-row">
+              <span class="setting-label">Center Gravity</span>
+              <span class="setting-value">{{ config.centerStrength }}</span>
+            </div>
+            <input
+              type="range"
+              min="0.01"
+              max="0.25"
+              step="0.01"
+              v-model.number="config.centerStrength"
+              @input="onConfigChange"
+              class="setting-slider"
+            />
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <!-- Graph Viewport (SVG rendered via D3) -->
     <div class="svg-viewport" ref="viewportEl">
@@ -28,19 +111,51 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import * as d3 from 'd3'
 
 const containerEl = ref(null)
 const viewportEl = ref(null)
 const svgEl = ref(null)
+const showSettings = ref(false)
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ⚙ GRAPH PHYSICS & SIZING CONFIGURATION
+// You can adjust these default numbers right here in code:
+// ═════════════════════════════════════════════════════════════════════════════
+const config = reactive({
+  // 1. NODE SIZES:
+  // Base radius in pixels (default 5.5). Range: 3 to 14
+  baseNodeRadius: 5.5,
+
+  // Node scale scaling factor based on number of connections (default 2.2)
+  nodeScaleMultiplier: 2.2,
+
+  // 2. REPELLANT / REPULSION FORCE:
+  // Negative charge between nodes. More negative = nodes push further apart
+  // (default -300). Range: -100 (close together) to -800 (very wide spread)
+  repulsionStrength: -300,
+
+  // 3. LINK DISTANCE:
+  // Base spring length between connected skill nodes (default 80px)
+  linkDistance: 80,
+
+  // 4. CENTER GRAVITY:
+  // Pull towards center of viewport (default 0.05). Range: 0.01 to 0.25
+  centerStrength: 0.05,
+
+  // 5. COLLISION PADDING:
+  // Extra buffer to prevent overlapping node circles & text (default 15px)
+  collisionPadding: 15
+})
 
 let simulation = null
 let zoomBehavior = null
 let gContainer = null
+let currentNodes = []
+let currentLinks = []
 
 // ── Skills Data Structured by Credly Credentials ──
-// GCP, Artificial Intelligence & Gemini, Networking & Systems
 const nodesData = [
   // Primary Domain Hubs
   { id: 'gcp', label: 'Google Cloud (GCP)' },
@@ -104,17 +219,17 @@ const edgesData = [
   { source: 'networking', target: 'cicd' },
 
   // ── Cross-Domain Structural Links (Interconnected Web) ──
-  { source: 'gcp', target: 'ai' },               // Vertex AI & Gemini on GCP
-  { source: 'gcp', target: 'networking' },       // Hybrid & Cloud Connectivity
-  { source: 'gke', target: 'docker' },           // Kubernetes orchestrates Docker
-  { source: 'docker', target: 'cicd' },          // Containerized CI/CD
-  { source: 'terraform', target: 'cicd' },       // GitOps / IaC pipelines
-  { source: 'agents', target: 'gemini' },        // Gemini Agent specialist
-  { source: 'agents', target: 'adk' },           // ADK framework
-  { source: 'agents', target: 'python' },        // Python agent tools
-  { source: 'cloud-vpc', target: 'ccna' },       // Routing applied to Cloud VPC
-  { source: 'cloud-iam', target: 'firewalls' },  // Defense in depth
-  { source: 'compute', target: 'linux' }         // Linux on Compute Engine
+  { source: 'gcp', target: 'ai' },
+  { source: 'gcp', target: 'networking' },
+  { source: 'gke', target: 'docker' },
+  { source: 'docker', target: 'cicd' },
+  { source: 'terraform', target: 'cicd' },
+  { source: 'agents', target: 'gemini' },
+  { source: 'agents', target: 'adk' },
+  { source: 'agents', target: 'python' },
+  { source: 'cloud-vpc', target: 'ccna' },
+  { source: 'cloud-iam', target: 'firewalls' },
+  { source: 'compute', target: 'linux' }
 ]
 
 // ── Graph Initialization (D3 Force Simulation) ─────
@@ -122,7 +237,7 @@ const initGraph = () => {
   if (!svgEl.value || !viewportEl.value) return
 
   const width = viewportEl.value.clientWidth
-  const height = Math.max(420, Math.min(width * 0.62, 540))
+  const height = Math.max(440, Math.min(width * 0.62, 560))
 
   d3.select(svgEl.value).selectAll('*').remove()
 
@@ -131,7 +246,7 @@ const initGraph = () => {
     .attr('height', height)
     .attr('viewBox', [0, 0, width, height])
 
-  // Count connections for each node (matches Hellyom generator)
+  // Count connections for each node
   const linkCount = {}
   nodesData.forEach(n => { linkCount[n.id] = 0 })
   edgesData.forEach(e => {
@@ -142,13 +257,13 @@ const initGraph = () => {
   })
 
   // Deep clone data for D3 mutation
-  const nodes = nodesData.map(d => ({
+  currentNodes = nodesData.map(d => ({
     ...d,
     linkCount: linkCount[d.id] || 1,
-    r: Math.max(5.5, 4.5 + Math.sqrt(linkCount[d.id] || 1) * 2.4)
+    r: Math.max(config.baseNodeRadius, config.baseNodeRadius * 0.75 + Math.sqrt(linkCount[d.id] || 1) * config.nodeScaleMultiplier)
   }))
 
-  const links = edgesData.map(d => ({ ...d }))
+  currentLinks = edgesData.map(d => ({ ...d }))
 
   gContainer = svg.append('g').attr('class', 'graph-root')
 
@@ -161,18 +276,18 @@ const initGraph = () => {
   svg.call(zoomBehavior)
 
   // Force simulation matching Hellyom Obsidian graph
-  simulation = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links)
+  simulation = d3.forceSimulation(currentNodes)
+    .force('link', d3.forceLink(currentLinks)
       .id(d => d.id)
       .distance(d => {
         const sourceLinks = d.source.linkCount || 1
         const targetLinks = d.target.linkCount || 1
-        return Math.min(135, Math.max(60, (sourceLinks + targetLinks) * 7.5))
+        return Math.min(config.linkDistance * 1.6, Math.max(config.linkDistance * 0.65, (sourceLinks + targetLinks) * (config.linkDistance * 0.1)))
       })
     )
-    .force('charge', d3.forceManyBody().strength(-290))
+    .force('charge', d3.forceManyBody().strength(config.repulsionStrength))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collide', d3.forceCollide().radius(d => d.r + 15).iterations(2))
+    .force('collide', d3.forceCollide().radius(d => d.r + config.collisionPadding).iterations(2))
     .alphaDecay(0.022)
     .alphaMin(0.001)
 
@@ -180,7 +295,7 @@ const initGraph = () => {
   const link = gContainer.append('g')
     .attr('class', 'links')
     .selectAll('line')
-    .data(links)
+    .data(currentLinks)
     .enter().append('line')
     .attr('class', 'graph-link')
     .attr('stroke', '#38383e')
@@ -191,14 +306,14 @@ const initGraph = () => {
   const node = gContainer.append('g')
     .attr('class', 'nodes')
     .selectAll('circle')
-    .data(nodes)
+    .data(currentNodes)
     .enter().append('circle')
     .attr('class', 'graph-node')
     .attr('r', d => d.r)
     .attr('fill', d => {
-      if (d.linkCount >= 6) return '#f4f4f5' // Top Hubs (GCP, AI, Networking)
-      if (d.linkCount >= 3) return '#a1a1aa' // Mid skills
-      return '#71717a'                      // Specific skills
+      if (d.linkCount >= 6) return '#f4f4f5'
+      if (d.linkCount >= 3) return '#a1a1aa'
+      return '#71717a'
     })
     .call(d3.drag()
       .on('start', dragstarted)
@@ -210,7 +325,7 @@ const initGraph = () => {
   const text = gContainer.append('g')
     .attr('class', 'texts')
     .selectAll('text')
-    .data(nodes)
+    .data(currentNodes)
     .enter().append('text')
     .attr('class', 'graph-label')
     .attr('font-size', '10.5px')
@@ -236,11 +351,11 @@ const initGraph = () => {
       .attr('y', d => d.y + 3.5)
   })
 
-  // Hover highlighting (Obsidian graph neighborhood spotlight)
+  // Hover highlighting
   node
     .on('mouseenter', (event, d) => {
       const neighborIds = new Set([d.id])
-      links.forEach(l => {
+      currentLinks.forEach(l => {
         if (l.source.id === d.id) neighborIds.add(l.target.id)
         if (l.target.id === d.id) neighborIds.add(l.source.id)
       })
@@ -294,6 +409,37 @@ const initGraph = () => {
     event.subject.fx = null
     event.subject.fy = null
   }
+}
+
+// ── Live Slider Adjustments (Updates Physics in Real-Time) ──
+const onConfigChange = () => {
+  if (!simulation || !gContainer) return
+
+  // 1. Update node radii
+  currentNodes.forEach(d => {
+    d.r = Math.max(config.baseNodeRadius, config.baseNodeRadius * 0.75 + Math.sqrt(d.linkCount || 1) * config.nodeScaleMultiplier)
+  })
+
+  gContainer.selectAll('.graph-node')
+    .attr('r', d => d.r)
+
+  gContainer.selectAll('.graph-label')
+    .attr('x', d => d.x + d.r + 5)
+
+  // 2. Update forces
+  simulation.force('charge', d3.forceManyBody().strength(config.repulsionStrength))
+  simulation.force('collide', d3.forceCollide().radius(d => d.r + config.collisionPadding))
+  simulation.force('link', d3.forceLink(currentLinks)
+    .id(d => d.id)
+    .distance(d => {
+      const sourceLinks = d.source.linkCount || 1
+      const targetLinks = d.target.linkCount || 1
+      return Math.min(config.linkDistance * 1.6, Math.max(config.linkDistance * 0.65, (sourceLinks + targetLinks) * (config.linkDistance * 0.1)))
+    })
+  )
+
+  // 3. Gentle reheat to settle into new positions
+  simulation.alpha(0.35).restart()
 }
 
 // ── Controls: Zoom & Reset ─────────────────────────
@@ -374,7 +520,7 @@ onUnmounted(() => {
   font-family: var(--font-sans);
   font-size: 11px;
   color: var(--ink-mid);
-  padding: 4px 9px;
+  padding: 4px 10px;
   border-radius: 3px;
   border: 1px solid var(--border-hover);
   background: transparent;
@@ -386,6 +532,88 @@ onUnmounted(() => {
   color: var(--ink);
   border-color: #555;
   background: rgba(255, 255, 255, 0.06);
+}
+.ctrl-btn.active {
+  color: #ffffff;
+  border-color: #666;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Settings Drawer (Live Sliders) ───────────────── */
+.settings-drawer {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(14, 14, 18, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setting-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setting-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-light);
+  text-transform: uppercase;
+}
+
+.setting-value {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-mid);
+}
+
+.setting-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: #27272a;
+  outline: none;
+  cursor: pointer;
+}
+.setting-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(0,0,0,0.5);
+  transition: transform 120ms ease;
+}
+.setting-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+}
+
+/* Transitions */
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 /* ── SVG Viewport ─────────────────────────────────── */
@@ -437,6 +665,8 @@ onUnmounted(() => {
 
 @media (max-width: 640px) {
   .graph-header { padding: 12px 14px; }
+  .settings-drawer { padding: 12px 14px; }
+  .settings-grid { grid-template-columns: 1fr; gap: 12px; }
   .graph-hint { font-size: 9px; left: 14px; bottom: 8px; }
 }
 </style>
