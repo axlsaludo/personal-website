@@ -8,95 +8,12 @@
 
       <div class="graph-controls">
         <div class="zoom-btn-group">
-          <button
-            class="ctrl-btn"
-            :class="{ active: showSettings }"
-            @click="showSettings = !showSettings"
-            title="Adjust Physics &amp; Node Sizes"
-          >
-            ⚙ Settings
-          </button>
           <button class="ctrl-btn" @click="zoomIn" title="Zoom in">+</button>
           <button class="ctrl-btn" @click="zoomOut" title="Zoom out">−</button>
           <button class="ctrl-btn" @click="resetGraph" title="Reset view">↺ Reset</button>
         </div>
       </div>
     </div>
-
-    <!-- Obsidian Physics & Sizing Drawer (Collapsible) -->
-    <transition name="slide-fade">
-      <div v-if="showSettings" class="settings-drawer">
-        <div class="settings-grid">
-          <!-- Node Size -->
-          <div class="setting-item">
-            <div class="setting-label-row">
-              <span class="setting-label">Node Size</span>
-              <span class="setting-value">{{ config.baseNodeRadius }}px</span>
-            </div>
-            <input
-              type="range"
-              min="3"
-              max="12"
-              step="0.5"
-              v-model.number="config.baseNodeRadius"
-              @input="onConfigChange"
-              class="setting-slider"
-            />
-          </div>
-
-          <!-- Repellant / Repulsion -->
-          <div class="setting-item">
-            <div class="setting-label-row">
-              <span class="setting-label">Repellant Force</span>
-              <span class="setting-value">{{ Math.abs(config.repulsionStrength) }}</span>
-            </div>
-            <input
-              type="range"
-              min="-800"
-              max="-100"
-              step="20"
-              v-model.number="config.repulsionStrength"
-              @input="onConfigChange"
-              class="setting-slider"
-            />
-          </div>
-
-          <!-- Link Distance -->
-          <div class="setting-item">
-            <div class="setting-label-row">
-              <span class="setting-label">Link Distance</span>
-              <span class="setting-value">{{ config.linkDistance }}px</span>
-            </div>
-            <input
-              type="range"
-              min="40"
-              max="160"
-              step="5"
-              v-model.number="config.linkDistance"
-              @input="onConfigChange"
-              class="setting-slider"
-            />
-          </div>
-
-          <!-- Center Gravity -->
-          <div class="setting-item">
-            <div class="setting-label-row">
-              <span class="setting-label">Center Gravity</span>
-              <span class="setting-value">{{ config.centerStrength }}</span>
-            </div>
-            <input
-              type="range"
-              min="0.01"
-              max="0.25"
-              step="0.01"
-              v-model.number="config.centerStrength"
-              @input="onConfigChange"
-              class="setting-slider"
-            />
-          </div>
-        </div>
-      </div>
-    </transition>
 
     <!-- Graph Viewport (SVG rendered via D3) -->
     <div class="svg-viewport" ref="viewportEl">
@@ -111,43 +28,25 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import * as d3 from 'd3'
 
 const containerEl = ref(null)
 const viewportEl = ref(null)
 const svgEl = ref(null)
-const showSettings = ref(false)
 
 // ═════════════════════════════════════════════════════════════════════════════
-// ⚙ GRAPH PHYSICS & SIZING CONFIGURATION
-// You can adjust these default numbers right here in code:
+// ⚙ GRAPH PHYSICS & SIZING CONFIGURATION (Set via Backend / Code)
+// Node Size: 4px | Repellant Force: 320 | Link Distance: 75px | Center Gravity: 0.05
 // ═════════════════════════════════════════════════════════════════════════════
-const config = reactive({
-  // 1. NODE SIZES:
-  // Base radius in pixels (default 5.5). Range: 3 to 14
-  baseNodeRadius: 5.5,
-
-  // Node scale scaling factor based on number of connections (default 2.2)
-  nodeScaleMultiplier: 2.2,
-
-  // 2. REPELLANT / REPULSION FORCE:
-  // Negative charge between nodes. More negative = nodes push further apart
-  // (default -300). Range: -100 (close together) to -800 (very wide spread)
-  repulsionStrength: -300,
-
-  // 3. LINK DISTANCE:
-  // Base spring length between connected skill nodes (default 80px)
-  linkDistance: 80,
-
-  // 4. CENTER GRAVITY:
-  // Pull towards center of viewport (default 0.05). Range: 0.01 to 0.25
-  centerStrength: 0.05,
-
-  // 5. COLLISION PADDING:
-  // Extra buffer to prevent overlapping node circles & text (default 15px)
-  collisionPadding: 15
-})
+const config = {
+  baseNodeRadius: 4,          // Node Size: 4px
+  nodeScaleMultiplier: 1.6,   // Subtle scaling for hubs
+  repulsionStrength: -320,    // Repellant Force: 320
+  linkDistance: 75,           // Link Distance: 75px
+  centerStrength: 0.05,       // Center Gravity: 0.05
+  collisionPadding: 12        // Buffer between nodes
+}
 
 let simulation = null
 let zoomBehavior = null
@@ -275,14 +174,14 @@ const initGraph = () => {
 
   svg.call(zoomBehavior)
 
-  // Force simulation matching Hellyom Obsidian graph
+  // Force simulation matching Hellyom Obsidian graph with configured values
   simulation = d3.forceSimulation(currentNodes)
     .force('link', d3.forceLink(currentLinks)
       .id(d => d.id)
       .distance(d => {
         const sourceLinks = d.source.linkCount || 1
         const targetLinks = d.target.linkCount || 1
-        return Math.min(config.linkDistance * 1.6, Math.max(config.linkDistance * 0.65, (sourceLinks + targetLinks) * (config.linkDistance * 0.1)))
+        return Math.min(config.linkDistance * 1.5, Math.max(config.linkDistance * 0.7, (sourceLinks + targetLinks) * (config.linkDistance * 0.09)))
       })
     )
     .force('charge', d3.forceManyBody().strength(config.repulsionStrength))
@@ -411,37 +310,6 @@ const initGraph = () => {
   }
 }
 
-// ── Live Slider Adjustments (Updates Physics in Real-Time) ──
-const onConfigChange = () => {
-  if (!simulation || !gContainer) return
-
-  // 1. Update node radii
-  currentNodes.forEach(d => {
-    d.r = Math.max(config.baseNodeRadius, config.baseNodeRadius * 0.75 + Math.sqrt(d.linkCount || 1) * config.nodeScaleMultiplier)
-  })
-
-  gContainer.selectAll('.graph-node')
-    .attr('r', d => d.r)
-
-  gContainer.selectAll('.graph-label')
-    .attr('x', d => d.x + d.r + 5)
-
-  // 2. Update forces
-  simulation.force('charge', d3.forceManyBody().strength(config.repulsionStrength))
-  simulation.force('collide', d3.forceCollide().radius(d => d.r + config.collisionPadding))
-  simulation.force('link', d3.forceLink(currentLinks)
-    .id(d => d.id)
-    .distance(d => {
-      const sourceLinks = d.source.linkCount || 1
-      const targetLinks = d.target.linkCount || 1
-      return Math.min(config.linkDistance * 1.6, Math.max(config.linkDistance * 0.65, (sourceLinks + targetLinks) * (config.linkDistance * 0.1)))
-    })
-  )
-
-  // 3. Gentle reheat to settle into new positions
-  simulation.alpha(0.35).restart()
-}
-
 // ── Controls: Zoom & Reset ─────────────────────────
 const zoomIn = () => {
   if (!svgEl.value || !zoomBehavior) return
@@ -533,88 +401,6 @@ onUnmounted(() => {
   border-color: #555;
   background: rgba(255, 255, 255, 0.06);
 }
-.ctrl-btn.active {
-  color: #ffffff;
-  border-color: #666;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-/* ── Settings Drawer (Live Sliders) ───────────────── */
-.settings-drawer {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(14, 14, 18, 0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-.setting-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.setting-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.setting-label {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  color: var(--ink-light);
-  text-transform: uppercase;
-}
-
-.setting-value {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--ink-mid);
-}
-
-.setting-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  background: #27272a;
-  outline: none;
-  cursor: pointer;
-}
-.setting-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ffffff;
-  cursor: pointer;
-  box-shadow: 0 0 6px rgba(0,0,0,0.5);
-  transition: transform 120ms ease;
-}
-.setting-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.25);
-}
-
-/* Transitions */
-.slide-fade-enter-active,
-.slide-fade-leave-active {
-  transition: all 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
 
 /* ── SVG Viewport ─────────────────────────────────── */
 .svg-viewport {
@@ -665,8 +451,6 @@ onUnmounted(() => {
 
 @media (max-width: 640px) {
   .graph-header { padding: 12px 14px; }
-  .settings-drawer { padding: 12px 14px; }
-  .settings-grid { grid-template-columns: 1fr; gap: 12px; }
   .graph-hint { font-size: 9px; left: 14px; bottom: 8px; }
 }
 </style>
