@@ -1,49 +1,30 @@
 <template>
   <div class="obsidian-container" ref="containerEl">
-    <!-- Graph HUD Header -->
+    <!-- Graph HUD Header (Clean Obsidian Minimalist) -->
     <div class="graph-header">
       <div class="graph-meta">
         <span class="graph-tag">// KNOWLEDGE GRAPH</span>
         <h3 class="graph-title">Skill Architecture</h3>
       </div>
-      <div class="graph-badges">
-        <span class="badge-count">{{ nodes.length }} NODES</span>
-        <span class="badge-count">{{ edges.length }} CONNECTIONS</span>
-        <button class="reset-btn" @click="resetSimulation" title="Reset layout">
-          <span>↺</span> Reset
-        </button>
+
+      <div class="graph-controls">
+        <span class="graph-stat">{{ nodesData.length }} NODES</span>
+        <span class="graph-stat">{{ edgesData.length }} EDGES</span>
+        <div class="zoom-btn-group">
+          <button class="ctrl-btn" @click="zoomIn" title="Zoom in">+</button>
+          <button class="ctrl-btn" @click="zoomOut" title="Zoom out">−</button>
+          <button class="ctrl-btn" @click="resetGraph" title="Reset view">↺ Reset</button>
+        </div>
       </div>
     </div>
 
-    <!-- Filter Group Pills -->
-    <div class="filter-pills">
-      <button
-        v-for="cat in categories"
-        :key="cat.id"
-        class="filter-pill"
-        :class="{ active: activeCategory === cat.id }"
-        @click="selectCategory(cat.id)"
-      >
-        <span class="dot" :style="{ background: cat.color }"></span>
-        {{ cat.label }}
-      </button>
-    </div>
+    <!-- Graph Viewport (SVG rendered via D3) -->
+    <div class="svg-viewport" ref="viewportEl">
+      <svg ref="svgEl" class="graph-svg"></svg>
 
-    <!-- Canvas viewport -->
-    <div class="canvas-wrap">
-      <canvas
-        ref="canvasEl"
-        @mousedown="onMouseDown"
-        @mousemove="onMouseMove"
-        @mouseup="onMouseUp"
-        @mouseleave="onMouseLeave"
-        @touchstart.passive="onTouchStart"
-        @touchmove.passive="onTouchMove"
-        @touchend="onTouchEnd"
-      ></canvas>
-
+      <!-- Bottom HUD Hint -->
       <div class="graph-hint">
-        <span>Click &amp; drag nodes to explore relationships</span>
+        <span>Click &amp; drag nodes · Scroll or pinch to zoom</span>
       </div>
     </div>
   </div>
@@ -51,497 +32,296 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import * as d3 from 'd3'
 
 const containerEl = ref(null)
-const canvasEl = ref(null)
+const viewportEl = ref(null)
+const svgEl = ref(null)
 
-const categories = [
-  { id: 'all', label: 'All Domains', color: '#ffffff' },
-  { id: 'cloud', label: 'Cloud Architecture', color: '#60a5fa' },
-  { id: 'ai', label: 'AI & Agents', color: '#c084fc' },
-  { id: 'devops', label: 'DevOps & Containers', color: '#4ade80' },
-  { id: 'net', label: 'Networking & Security', color: '#f59e0b' }
+let simulation = null
+let zoomBehavior = null
+let gContainer = null
+let currentTransform = d3.zoomIdentity
+
+// ── Skills & Architecture Data ─────────────────────
+// Based on Credly certifications & Cloud/AI skill set
+const nodesData = [
+  { id: 'gcp', label: 'Google Cloud (GCP)' },
+  { id: 'cloud-arch', label: 'Cloud Architecture' },
+  { id: 'terraform', label: 'Terraform & IaC' },
+  { id: 'cdl', label: 'Cloud Digital Leader' },
+  { id: 'gccf', label: 'Cloud Computing Foundations' },
+  { id: 'gemini', label: 'Gemini Enterprise' },
+  { id: 'agents', label: 'AI Agent Development' },
+  { id: 'genai', label: 'Generative AI Leader' },
+  { id: 'google-ai', label: 'Google AI Professional' },
+  { id: 'adk', label: 'ADK Builder' },
+  { id: 'python', label: 'Python & Tooling' },
+  { id: 'k8s', label: 'Kubernetes (GKE)' },
+  { id: 'docker', label: 'Docker Containers' },
+  { id: 'cicd', label: 'CI/CD Pipelines' },
+  { id: 'linux', label: 'Linux & Shell Scripting' },
+  { id: 'infra-auto', label: 'Infra Automation' },
+  { id: 'ccna', label: 'CCNA Routing & Switching' },
+  { id: 'networking', label: 'VPC & Hybrid Mesh' },
+  { id: 'security', label: 'Cloud IAM & Security' },
+  { id: 'wireless', label: 'Wireless Essentials' }
 ]
 
-const activeCategory = ref('all')
-
-const selectCategory = (id) => {
-  activeCategory.value = id
-  wakeSimulation()
-}
-
-// ── Graph Data Definition ──────────────────────────
-const initialNodes = [
-  // Hubs
-  { id: 'cloud-hub', label: 'Cloud Infrastructure', cat: 'cloud', r: 12, isHub: true },
-  { id: 'ai-hub', label: 'Generative AI & Agents', cat: 'ai', r: 12, isHub: true },
-  { id: 'devops-hub', label: 'DevOps & Systems', cat: 'devops', r: 12, isHub: true },
-  { id: 'net-hub', label: 'Networking & Core', cat: 'net', r: 11, isHub: true },
-
-  // Cloud Nodes
-  { id: 'gcp', label: 'Google Cloud (GCP)', cat: 'cloud', r: 9 },
-  { id: 'terraform', label: 'Terraform & IaC', cat: 'cloud', r: 7 },
-  { id: 'arch', label: 'Cloud Architecture', cat: 'cloud', r: 7 },
-  { id: 'cdl', label: 'Cloud Digital Leader', cat: 'cloud', r: 6 },
-
-  // AI Nodes
-  { id: 'gemini', label: 'Gemini Enterprise', cat: 'ai', r: 9 },
-  { id: 'agents', label: 'AI Agent Systems', cat: 'ai', r: 8 },
-  { id: 'genai-lead', label: 'Generative AI Leader', cat: 'ai', r: 7 },
-  { id: 'python', label: 'Python & Tooling', cat: 'ai', r: 7 },
-
-  // DevOps Nodes
-  { id: 'k8s', label: 'Kubernetes (GKE)', cat: 'devops', r: 9 },
-  { id: 'docker', label: 'Docker Containers', cat: 'devops', r: 7 },
-  { id: 'cicd', label: 'CI/CD Automation', cat: 'devops', r: 7 },
-  { id: 'linux', label: 'Linux & Shell', cat: 'devops', r: 6 },
-
-  // Networking Nodes
-  { id: 'ccna', label: 'CCNA Routing/Switching', cat: 'net', r: 8 },
-  { id: 'vpc', label: 'VPC & Hybrid Mesh', cat: 'net', r: 7 },
-  { id: 'security', label: 'Cloud IAM & Security', cat: 'net', r: 7 }
-]
-
-const edges = [
-  // Cloud Hub links
-  { source: 'cloud-hub', target: 'gcp' },
-  { source: 'cloud-hub', target: 'terraform' },
-  { source: 'cloud-hub', target: 'arch' },
-  { source: 'cloud-hub', target: 'cdl' },
-  { source: 'cloud-hub', target: 'security' },
-
-  // AI Hub links
-  { source: 'ai-hub', target: 'gemini' },
-  { source: 'ai-hub', target: 'agents' },
-  { source: 'ai-hub', target: 'genai-lead' },
-  { source: 'ai-hub', target: 'python' },
-
-  // DevOps Hub links
-  { source: 'devops-hub', target: 'k8s' },
-  { source: 'devops-hub', target: 'docker' },
-  { source: 'devops-hub', target: 'cicd' },
-  { source: 'devops-hub', target: 'linux' },
-
-  // Net Hub links
-  { source: 'net-hub', target: 'ccna' },
-  { source: 'net-hub', target: 'vpc' },
-  { source: 'net-hub', target: 'security' },
-
-  // Cross-domain interconnections (Obsidian knowledge web)
+const edgesData = [
+  // GCP Core
+  { source: 'gcp', target: 'cloud-arch' },
+  { source: 'gcp', target: 'terraform' },
   { source: 'gcp', target: 'k8s' },
-  { source: 'k8s', target: 'docker' },
-  { source: 'docker', target: 'cicd' },
+  { source: 'gcp', target: 'networking' },
+  { source: 'gcp', target: 'security' },
+  { source: 'gcp', target: 'cdl' },
+  { source: 'gcp', target: 'gccf' },
+
+  // AI & Gemini Core
   { source: 'gemini', target: 'agents' },
+  { source: 'gemini', target: 'genai' },
+  { source: 'gemini', target: 'google-ai' },
+  { source: 'agents', target: 'adk' },
   { source: 'agents', target: 'python' },
-  { source: 'gcp', target: 'vpc' },
-  { source: 'vpc', target: 'ccna' },
-  { source: 'terraform', target: 'gcp' },
-  { source: 'genai-lead', target: 'cdl' },
-  { source: 'cloud-hub', target: 'devops-hub' },
-  { source: 'cloud-hub', target: 'ai-hub' }
+  { source: 'google-ai', target: 'genai' },
+  { source: 'python', target: 'infra-auto' },
+
+  // DevOps & Containers
+  { source: 'k8s', target: 'docker' },
+  { source: 'k8s', target: 'cloud-arch' },
+  { source: 'docker', target: 'cicd' },
+  { source: 'docker', target: 'linux' },
+  { source: 'cicd', target: 'infra-auto' },
+  { source: 'terraform', target: 'infra-auto' },
+  { source: 'linux', target: 'infra-auto' },
+
+  // Networking & Security
+  { source: 'ccna', target: 'networking' },
+  { source: 'ccna', target: 'wireless' },
+  { source: 'networking', target: 'security' },
+  { source: 'security', target: 'cloud-arch' },
+
+  // Cross-domain links (Obsidian knowledge web)
+  { source: 'gcp', target: 'gemini' },
+  { source: 'cdl', target: 'genai' },
+  { source: 'adk', target: 'gcp' }
 ]
 
-// ── Physics State ───────────────────────────────────
-let nodes = []
-let animFrameId = null
-let draggedNode = null
-let hoveredNode = null
-let width = 0
-let height = 0
-let isRunning = true
-let idleCounter = 0
+// ── Graph Initialization (Hellyom-based Obsidian logic) ─────
+const initGraph = () => {
+  if (!svgEl.value || !viewportEl.value) return
 
-const getCategoryColor = (cat) => {
-  switch (cat) {
-    case 'cloud': return '#60a5fa'
-    case 'ai': return '#c084fc'
-    case 'devops': return '#4ade80'
-    case 'net': return '#f59e0b'
-    default: return '#e4e4e7'
-  }
-}
+  const width = viewportEl.value.clientWidth
+  const height = Math.max(420, Math.min(width * 0.62, 540))
 
-const wakeSimulation = () => {
-  idleCounter = 0
-  if (!isRunning) {
-    isRunning = true
-    loop()
-  }
-}
+  // Clean existing SVG elements
+  d3.select(svgEl.value).selectAll('*').remove()
 
-const initPositions = () => {
-  if (!width || !height) return
-  const cx = width / 2
-  const cy = height / 2
+  const svg = d3.select(svgEl.value)
+    .attr('width', width)
+    .attr('height', height)
+    .attr('viewBox', [0, 0, width, height])
 
-  nodes = initialNodes.map((n, i) => {
-    // Arrange in loose clusters
-    let angle = (i / initialNodes.length) * Math.PI * 2
-    let dist = n.isHub ? Math.min(width, height) * 0.22 : Math.min(width, height) * 0.38
-    dist += (Math.random() - 0.5) * 40
-
-    return {
-      ...n,
-      x: cx + Math.cos(angle) * dist,
-      y: cy + Math.sin(angle) * dist,
-      vx: (Math.random() - 0.5) * 1.5,
-      vy: (Math.random() - 0.5) * 1.5,
-      color: getCategoryColor(n.cat)
-    }
+  // Count connections for each node (matches Hellyom generator)
+  const linkCount = {}
+  nodesData.forEach(n => { linkCount[n.id] = 0 })
+  edgesData.forEach(e => {
+    linkCount[typeof e.source === 'object' ? e.source.id : e.source] =
+      (linkCount[typeof e.source === 'object' ? e.source.id : e.source] || 0) + 1
+    linkCount[typeof e.target === 'object' ? e.target.id : e.target] =
+      (linkCount[typeof e.target === 'object' ? e.target.id : e.target] || 0) + 1
   })
-  wakeSimulation()
-}
 
-const resetSimulation = () => {
-  initPositions()
-}
+  // Deep clone data for D3 mutation
+  const nodes = nodesData.map(d => ({
+    ...d,
+    linkCount: linkCount[d.id] || 1,
+    r: Math.max(5, 4.5 + Math.sqrt(linkCount[d.id] || 1) * 2.2)
+  }))
 
-// ── Force-Directed Physics Step ────────────────────
-const stepPhysics = () => {
-  const cx = width / 2
-  const cy = height / 2
+  const links = edgesData.map(d => ({ ...d }))
 
-  let maxVelocity = 0
+  // Main Zoom container
+  gContainer = svg.append('g').attr('class', 'graph-root')
 
-  // 1. Center gravity & boundary soft bounce
-  for (const n of nodes) {
-    if (n === draggedNode) continue
-    const dx = cx - n.x
-    const dy = cy - n.y
-    n.vx += dx * 0.0004
-    n.vy += dy * 0.0004
-  }
-
-  // 2. Coulomb node-node repulsion
-  for (let i = 0; i < nodes.length; i++) {
-    for (let j = i + 1; j < nodes.length; j++) {
-      const n1 = nodes[i]
-      const n2 = nodes[j]
-      const dx = n2.x - n1.x
-      const dy = n2.y - n1.y
-      const distSq = dx * dx + dy * dy + 100
-      const dist = Math.sqrt(distSq)
-
-      const force = (n1.r * n2.r * 180) / distSq
-      const fx = (dx / dist) * force
-      const fy = (dy / dist) * force
-
-      if (n1 !== draggedNode) {
-        n1.vx -= fx
-        n1.vy -= fy
-      }
-      if (n2 !== draggedNode) {
-        n2.vx += fx
-        n2.vy += fy
-      }
-    }
-  }
-
-  // 3. Hooke's spring force along edges
-  for (const e of edges) {
-    const s = nodes.find(n => n.id === e.source)
-    const t = nodes.find(n => n.id === e.target)
-    if (!s || !t) continue
-
-    const dx = t.x - s.x
-    const dy = t.y - s.y
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1
-    const targetDist = (s.isHub || t.isHub) ? 75 : 90
-    const springForce = (dist - targetDist) * 0.012
-
-    const fx = (dx / dist) * springForce
-    const fy = (dy / dist) * springForce
-
-    if (s !== draggedNode) {
-      s.vx += fx
-      s.vy += fy
-    }
-    if (t !== draggedNode) {
-      t.vx -= fx
-      t.vy -= fy
-    }
-  }
-
-  // 4. Update positions with damping
-  const damping = 0.88
-  for (const n of nodes) {
-    if (n === draggedNode) continue
-    n.vx *= damping
-    n.vy *= damping
-    n.x += n.vx
-    n.y += n.vy
-
-    // Keep comfortably inside canvas
-    const pad = n.r + 20
-    if (n.x < pad) { n.x = pad; n.vx *= -0.5 }
-    if (n.x > width - pad) { n.x = width - pad; n.vx *= -0.5 }
-    if (n.y < pad) { n.y = pad; n.vy *= -0.5 }
-    if (n.y > height - pad) { n.y = height - pad; n.vy *= -0.5 }
-
-    const speed = Math.abs(n.vx) + Math.abs(n.vy)
-    if (speed > maxVelocity) maxVelocity = speed
-  }
-
-  // If movements settle, let simulation sleep to save CPU
-  if (maxVelocity < 0.03 && !draggedNode) {
-    idleCounter++
-    if (idleCounter > 120) {
-      isRunning = false
-    }
-  } else {
-    idleCounter = 0
-  }
-}
-
-// ── Render Frame ───────────────────────────────────
-const render = () => {
-  if (!canvasEl.value) return
-  const ctx = canvasEl.value.getContext('2d')
-  if (!ctx) return
-
-  ctx.clearRect(0, 0, width, height)
-
-  const active = activeCategory.value
-  const hasFilter = active !== 'all'
-
-  // Connected nodes set when hovering
-  const connectedIds = new Set()
-  if (hoveredNode) {
-    connectedIds.add(hoveredNode.id)
-    edges.forEach(e => {
-      if (e.source === hoveredNode.id) connectedIds.add(e.target)
-      if (e.target === hoveredNode.id) connectedIds.add(e.source)
+  zoomBehavior = d3.zoom()
+    .scaleExtent([0.3, 3.5])
+    .on('zoom', (event) => {
+      currentTransform = event.transform
+      gContainer.attr('transform', event.transform)
     })
-  }
 
-  // 1. Draw Edges
-  for (const e of edges) {
-    const s = nodes.find(n => n.id === e.source)
-    const t = nodes.find(n => n.id === e.target)
-    if (!s || !t) continue
+  svg.call(zoomBehavior)
 
-    const isConnected = hoveredNode && (
-      (e.source === hoveredNode.id && connectedIds.has(e.target)) ||
-      (e.target === hoveredNode.id && connectedIds.has(e.source))
+  // Force simulation (D3 force physics matching Hellyom Obsidian graph)
+  simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links)
+      .id(d => d.id)
+      .distance(d => {
+        const sourceLinks = d.source.linkCount || 1
+        const targetLinks = d.target.linkCount || 1
+        return Math.min(130, Math.max(55, (sourceLinks + targetLinks) * 8.5))
+      })
     )
+    .force('charge', d3.forceManyBody().strength(-280))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collide', d3.forceCollide().radius(d => d.r + 14).iterations(2))
+    .alphaDecay(0.022)
+    .alphaMin(0.001)
 
-    const matchesFilter = !hasFilter || (s.cat === active || t.cat === active)
-
-    ctx.beginPath()
-    ctx.moveTo(s.x, s.y)
-    ctx.lineTo(t.x, t.y)
-
-    if (isConnected) {
-      ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = 1.4
-      ctx.globalAlpha = 0.8
-    } else if (hasFilter && !matchesFilter) {
-      ctx.strokeStyle = '#27272a'
-      ctx.lineWidth = 0.6
-      ctx.globalAlpha = 0.1
-    } else if (hoveredNode) {
-      ctx.strokeStyle = '#27272a'
-      ctx.lineWidth = 0.6
-      ctx.globalAlpha = 0.15
-    } else {
-      ctx.strokeStyle = '#3f3f46'
-      ctx.lineWidth = 0.8
-      ctx.globalAlpha = 0.35
-    }
-
-    ctx.stroke()
-  }
+  // 1. Draw Links
+  const link = gContainer.append('g')
+    .attr('class', 'links')
+    .selectAll('line')
+    .data(links)
+    .enter().append('line')
+    .attr('class', 'graph-link')
+    .attr('stroke', '#38383e')
+    .attr('stroke-opacity', 0.55)
+    .attr('stroke-width', 1)
 
   // 2. Draw Nodes
-  for (const n of nodes) {
-    const isHovered = hoveredNode && hoveredNode.id === n.id
-    const isNeighbor = hoveredNode && connectedIds.has(n.id)
-    const matchesFilter = !hasFilter || n.cat === active
+  const node = gContainer.append('g')
+    .attr('class', 'nodes')
+    .selectAll('circle')
+    .data(nodes)
+    .enter().append('circle')
+    .attr('class', 'graph-node')
+    .attr('r', d => d.r)
+    .attr('fill', d => {
+      // Obsidian-style subtle luminance based on connectivity
+      if (d.linkCount >= 5) return '#e4e4e7' // Hubs: brighter
+      if (d.linkCount >= 3) return '#a1a1aa' // Mid: light gray
+      return '#71717a'                      // Leaves: subtle slate
+    })
+    .call(d3.drag()
+      .on('start', dragstarted)
+      .on('drag', dragged)
+      .on('end', dragended)
+    )
 
-    let nodeAlpha = 1.0
-    if (hoveredNode && !isHovered && !isNeighbor) {
-      nodeAlpha = 0.18
-    } else if (hasFilter && !matchesFilter) {
-      nodeAlpha = 0.22
-    }
+  // 3. Draw Labels (positioned next to nodes, clean Obsidian style)
+  const text = gContainer.append('g')
+    .attr('class', 'texts')
+    .selectAll('text')
+    .data(nodes)
+    .enter().append('text')
+    .attr('class', 'graph-label')
+    .attr('font-size', '10.5px')
+    .attr('font-family', 'Inter, system-ui, -apple-system, sans-serif')
+    .attr('fill', '#a1a1aa')
+    .attr('pointer-events', 'none')
+    .text(d => d.label)
 
-    ctx.save()
-    ctx.globalAlpha = nodeAlpha
+  // Tick update loop
+  simulation.on('tick', () => {
+    link
+      .attr('x1', d => d.source.x)
+      .attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x)
+      .attr('y2', d => d.target.y)
 
-    // Outer glow ring
-    ctx.beginPath()
-    ctx.arc(n.x, n.y, n.r + (isHovered ? 8 : 4), 0, Math.PI * 2)
-    ctx.fillStyle = n.color
-    ctx.globalAlpha = isHovered ? 0.35 : nodeAlpha * 0.12
-    ctx.fill()
+    node
+      .attr('cx', d => d.x)
+      .attr('cy', d => d.y)
 
-    // Main Node circle
-    ctx.beginPath()
-    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2)
-    ctx.fillStyle = isHovered ? '#ffffff' : n.color
-    ctx.globalAlpha = nodeAlpha
-    ctx.fill()
+    text
+      .attr('x', d => d.x + d.r + 5)
+      .attr('y', d => d.y + 3.5)
+  })
 
-    // Node outline
-    ctx.strokeStyle = '#000000'
-    ctx.lineWidth = 1.5
-    ctx.stroke()
+  // Hover highlighting (Obsidian graph neighborhood spotlight)
+  node
+    .on('mouseenter', (event, d) => {
+      const neighborIds = new Set([d.id])
+      links.forEach(l => {
+        if (l.source.id === d.id) neighborIds.add(l.target.id)
+        if (l.target.id === d.id) neighborIds.add(l.source.id)
+      })
 
-    // Label
-    const showLabel = isHovered || isNeighbor || n.isHub || (!hoveredNode && (n.r >= 8 || width > 600))
-    if (showLabel) {
-      ctx.font = n.isHub ? '600 11px Inter, sans-serif' : '400 10.5px Inter, sans-serif'
-      ctx.fillStyle = isHovered ? '#ffffff' : (n.isHub ? '#e4e4e7' : '#a1a1aa')
-      ctx.textAlign = 'left'
-      ctx.textBaseline = 'middle'
-      ctx.globalAlpha = isHovered ? 1.0 : (isNeighbor ? 0.9 : nodeAlpha * 0.85)
+      // Dim non-neighbors
+      node
+        .attr('opacity', n => neighborIds.has(n.id) ? 1 : 0.15)
+        .attr('fill', n => n.id === d.id ? '#ffffff' : (neighborIds.has(n.id) ? '#e4e4e7' : '#52525b'))
 
-      // Slight label background badge for legibility
-      const text = n.label
-      const textWidth = ctx.measureText(text).width
-      const textX = n.x + n.r + 6
-      const textY = n.y
+      text
+        .attr('opacity', n => neighborIds.has(n.id) ? 1 : 0.15)
+        .attr('fill', n => n.id === d.id ? '#ffffff' : (neighborIds.has(n.id) ? '#f4f4f5' : '#71717a'))
 
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.65)'
-      ctx.fillRect(textX - 2, textY - 7, textWidth + 4, 14)
+      link
+        .attr('stroke', l => (l.source.id === d.id || l.target.id === d.id) ? '#ffffff' : '#27272a')
+        .attr('stroke-opacity', l => (l.source.id === d.id || l.target.id === d.id) ? 0.9 : 0.08)
+        .attr('stroke-width', l => (l.source.id === d.id || l.target.id === d.id) ? 1.6 : 0.8)
+    })
+    .on('mouseleave', () => {
+      node
+        .attr('opacity', 1)
+        .attr('fill', d => {
+          if (d.linkCount >= 5) return '#e4e4e7'
+          if (d.linkCount >= 3) return '#a1a1aa'
+          return '#71717a'
+        })
 
-      ctx.fillStyle = isHovered ? '#ffffff' : (n.isHub ? '#f4f4f5' : '#d4d4d8')
-      ctx.fillText(text, textX, textY)
-    }
+      text
+        .attr('opacity', 1)
+        .attr('fill', '#a1a1aa')
 
-    ctx.restore()
+      link
+        .attr('stroke', '#38383e')
+        .attr('stroke-opacity', 0.55)
+        .attr('stroke-width', 1)
+    })
+
+  // Drag handlers (Hellyom Obsidian drag implementation)
+  function dragstarted(event) {
+    if (!event.active) simulation.alphaTarget(0.3).restart()
+    event.subject.fx = event.subject.x
+    event.subject.fy = event.subject.y
+  }
+
+  function dragged(event) {
+    event.subject.fx = event.x
+    event.subject.fy = event.y
+  }
+
+  function dragended(event) {
+    if (!event.active) simulation.alphaTarget(0)
+    event.subject.fx = null
+    event.subject.fy = null
   }
 }
 
-const loop = () => {
-  if (!isRunning) return
-  stepPhysics()
-  render()
-  animFrameId = requestAnimationFrame(loop)
+// ── Controls: Zoom & Reset ─────────────────────────
+const zoomIn = () => {
+  if (!svgEl.value || !zoomBehavior) return
+  d3.select(svgEl.value).transition().duration(250).call(zoomBehavior.scaleBy, 1.3)
 }
 
-// ── Interactive Events ─────────────────────────────
-const findNodeAt = (clientX, clientY) => {
-  if (!canvasEl.value) return null
-  const rect = canvasEl.value.getBoundingClientRect()
-  const x = clientX - rect.left
-  const y = clientY - rect.top
-
-  for (let i = nodes.length - 1; i >= 0; i--) {
-    const n = nodes[i]
-    const dx = n.x - x
-    const dy = n.y - y
-    const hitRadius = Math.max(n.r + 8, 18)
-    if (dx * dx + dy * dy <= hitRadius * hitRadius) {
-      return n
-    }
-  }
-  return null
+const zoomOut = () => {
+  if (!svgEl.value || !zoomBehavior) return
+  d3.select(svgEl.value).transition().duration(250).call(zoomBehavior.scaleBy, 0.77)
 }
 
-const onMouseDown = (e) => {
-  const n = findNodeAt(e.clientX, e.clientY)
-  if (n) {
-    draggedNode = n
-    wakeSimulation()
-  }
+const resetGraph = () => {
+  if (!svgEl.value || !zoomBehavior) return
+  d3.select(svgEl.value).transition().duration(350).call(zoomBehavior.transform, d3.zoomIdentity)
+  if (simulation) simulation.alpha(0.6).restart()
 }
 
-const onMouseMove = (e) => {
-  const rect = canvasEl.value.getBoundingClientRect()
-  const mouseX = e.clientX - rect.left
-  const mouseY = e.clientY - rect.top
-
-  if (draggedNode) {
-    draggedNode.x = mouseX
-    draggedNode.y = mouseY
-    draggedNode.vx = 0
-    draggedNode.vy = 0
-    wakeSimulation()
-  } else {
-    const n = findNodeAt(e.clientX, e.clientY)
-    if (n !== hoveredNode) {
-      hoveredNode = n
-      render()
-    }
-  }
-}
-
-const onMouseUp = () => {
-  draggedNode = null
-}
-
-const onMouseLeave = () => {
-  draggedNode = null
-  if (hoveredNode) {
-    hoveredNode = null
-    render()
-  }
-}
-
-const onTouchStart = (e) => {
-  if (e.touches.length > 0) {
-    const touch = e.touches[0]
-    const n = findNodeAt(touch.clientX, touch.clientY)
-    if (n) {
-      draggedNode = n
-      hoveredNode = n
-      wakeSimulation()
-    }
-  }
-}
-
-const onTouchMove = (e) => {
-  if (draggedNode && e.touches.length > 0) {
-    const touch = e.touches[0]
-    const rect = canvasEl.value.getBoundingClientRect()
-    draggedNode.x = touch.clientX - rect.left
-    draggedNode.y = touch.clientY - rect.top
-    draggedNode.vx = 0
-    draggedNode.vy = 0
-    wakeSimulation()
-  }
-}
-
-const onTouchEnd = () => {
-  draggedNode = null
-  hoveredNode = null
-  wakeSimulation()
-}
-
-// ── Window Resize & Setup ──────────────────────────
-const resizeCanvas = () => {
-  if (!containerEl.value || !canvasEl.value) return
-  const dpr = Math.min(window.devicePixelRatio || 1, 2)
-  const rect = containerEl.value.getBoundingClientRect()
-
-  width = rect.width
-  height = Math.max(420, Math.min(width * 0.65, 540))
-
-  canvasEl.value.width = width * dpr
-  canvasEl.value.height = height * dpr
-  canvasEl.value.style.width = `${width}px`
-  canvasEl.value.style.height = `${height}px`
-
-  const ctx = canvasEl.value.getContext('2d')
-  if (ctx) ctx.scale(dpr, dpr)
-
-  if (nodes.length === 0) {
-    initPositions()
-  } else {
-    // Re-center nodes proportionally if resized
-    wakeSimulation()
-  }
+// ── Resize handler ─────────────────────────────────
+const handleResize = () => {
+  initGraph()
 }
 
 onMounted(() => {
-  resizeCanvas()
-  window.addEventListener('resize', resizeCanvas)
+  initGraph()
+  window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', resizeCanvas)
-  if (animFrameId) cancelAnimationFrame(animFrameId)
+  window.removeEventListener('resize', handleResize)
+  if (simulation) simulation.stop()
 })
 </script>
 
@@ -553,17 +333,19 @@ onUnmounted(() => {
   background: #09090b;
   overflow: hidden;
   position: relative;
-  box-shadow: 0 12px 36px rgba(0,0,0,0.4);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
 }
 
-/* ── Header HUD ─────────────────────────────────── */
+/* ── Obsidian HUD Header ─────────────────────────── */
 .graph-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   flex-wrap: wrap;
   gap: 12px;
 }
@@ -571,28 +353,29 @@ onUnmounted(() => {
 .graph-tag {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   color: var(--ink-light);
   display: block;
 }
 
 .graph-title {
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 600;
   color: var(--ink);
   letter-spacing: -0.01em;
 }
 
-.graph-badges {
+.graph-controls {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.badge-count {
+.graph-stat {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 10px;
+  letter-spacing: 0.05em;
   color: var(--ink-light);
   padding: 3px 8px;
   border-radius: 3px;
@@ -600,84 +383,66 @@ onUnmounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.reset-btn {
+.zoom-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+}
+
+.ctrl-btn {
   font-family: var(--font-sans);
   font-size: 11px;
   color: var(--ink-mid);
-  padding: 4px 10px;
+  padding: 4px 9px;
   border-radius: 3px;
   border: 1px solid var(--border-hover);
   background: transparent;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 180ms ease;
   cursor: pointer;
+  transition: all 180ms ease;
+  line-height: 1.2;
 }
-.reset-btn:hover {
+.ctrl-btn:hover {
   color: var(--ink);
   border-color: #555;
   background: rgba(255, 255, 255, 0.06);
 }
 
-/* ── Filter Pills ───────────────────────────────── */
-.filter-pills {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.2);
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-.filter-pill {
-  font-family: var(--font-sans);
-  font-size: 11.5px;
-  font-weight: 400;
-  color: var(--ink-light);
-  padding: 4px 11px;
-  border-radius: var(--radius-pill);
-  border: 1px solid transparent;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 160ms ease;
-}
-.filter-pill:hover {
-  color: var(--ink-mid);
-  background: rgba(255, 255, 255, 0.04);
-}
-.filter-pill.active {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.16);
-}
-
-.dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-/* ── Canvas Area ────────────────────────────────── */
-.canvas-wrap {
+/* ── SVG Viewport ─────────────────────────────────── */
+.svg-viewport {
   position: relative;
   width: 100%;
-  background: radial-gradient(circle at 50% 50%, #0d0d10 0%, #000000 100%);
+  background: radial-gradient(circle at 50% 50%, #0d0d12 0%, #000000 100%);
   cursor: grab;
+  overflow: hidden;
+  user-select: none;
 }
-.canvas-wrap:active {
+.svg-viewport:active {
   cursor: grabbing;
 }
 
-canvas {
+.graph-svg {
   display: block;
   width: 100%;
+  height: 100%;
 }
 
+:deep(.graph-node) {
+  cursor: move;
+  transition: opacity 180ms ease, fill 180ms ease;
+}
+
+:deep(.graph-link) {
+  transition: stroke 180ms ease, stroke-opacity 180ms ease;
+}
+
+:deep(.graph-label) {
+  user-select: none;
+  font-weight: 400;
+  transition: opacity 180ms ease, fill 180ms ease;
+}
+
+/* ── Bottom HUD Hint ──────────────────────────────── */
 .graph-hint {
   position: absolute;
   bottom: 12px;
@@ -687,12 +452,12 @@ canvas {
   font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--ink-light);
-  opacity: 0.6;
+  opacity: 0.65;
 }
 
 @media (max-width: 640px) {
   .graph-header { padding: 12px 14px; }
-  .filter-pills { padding: 8px 14px; }
   .graph-hint { font-size: 9px; left: 14px; bottom: 8px; }
+  .graph-stat { display: none; }
 }
 </style>
