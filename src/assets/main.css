@@ -1,28 +1,35 @@
 /* ============================================================
-   DESIGN SYSTEM — Dark Topographic / Monospace + Serif
-   Black & white · JetBrains Mono · Fraunces display · Topo bg
+   DESIGN SYSTEM — Black / Editorial
+   Inspired by artsandiego.dev accent style
+   Black & white · Inter + italic serif mix · Clean whitespace
    ============================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
+
 :root {
-  --font-display: var(--font-mono);
+  --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif:   'DM Serif Display', Georgia, serif;
   --font-mono:    'JetBrains Mono', 'Consolas', monospace;
 
-  /* Dark palette */
-  --bg:           #0a0a0f;
-  --bg-elevated:  #111118;
-  --bg-card:      rgba(255,255,255,0.03);
+  /* Pure black palette */
+  --bg:           #000000;
+  --bg-elevated:  #0c0c0c;
+  --bg-card:      #111111;
 
-  --ink:          #e8e6e3;
-  --ink-mid:      #8a8880;
-  --ink-light:    #555550;
-  --ink-dim:      #2a2a2f;
+  --ink:          #ffffff;
+  --ink-mid:      #999999;
+  --ink-light:    #555555;
+  --ink-dim:      #222222;
 
-  --border:       rgba(255,255,255,0.08);
-  --border-hover: rgba(255,255,255,0.15);
+  --border:       #1a1a1a;
+  --border-hover: #333333;
 
-  /* Subtle accent — muted topo line blue */
-  --accent:       rgba(120, 160, 200, 0.6);
-  --accent-dim:   rgba(120, 160, 200, 0.15);
+  /* Accent — warm off-white glow, artsandiego uses subtle warm tones */
+  --accent:       #ffffff;
+  --accent-warm:  #f5f0e8;
+
+  --radius-pill:  100px;
+  --radius-sm:    6px;
 
   --transition:   200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -31,11 +38,11 @@
 html { font-size: 16px; scroll-behavior: smooth; }
 
 body {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-weight: 400;
-  background: #000000;
+  background: var(--bg);
   color: var(--ink);
-  line-height: 1.7;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -43,161 +50,107 @@ body {
 
 a { color: inherit; text-decoration: none; }
 ul { list-style: none; }
-button { font-family: var(--font-mono); cursor: pointer; border: none; background: none; color: var(--ink); }
+button { font-family: var(--font-sans); cursor: pointer; border: none; background: none; color: var(--ink); }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--ink-dim); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--ink-light); }
 
-/* ── Highlights ───────────────────────── */
-.hi {
-  color: var(--ink);
-  background: var(--accent-dim);
-  padding: 1px 5px;
-  border-radius: 2px;
-  border-bottom: 1px solid var(--accent);
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-}
-.hi-warm {
-  color: #fff;
-  background: rgba(255,255,255,0.08);
-  padding: 1px 5px;
-  border-radius: 2px;
-  border-bottom: 1px solid rgba(255,255,255,0.25);
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-}
-
-/* Monospace labels */
-.label-sc {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-light);
-  display: block;
-}
-
-/* Small caps utility */
-.sc {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-/* Eyebrow — technical label */
-.eyebrow {
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--ink-light);
-  margin-bottom: 28px;
-}
-.eyebrow::before {
-  content: '// ';
-  color: var(--ink-dim);
-}
-
 /* ── Container ────────────────────────── */
 .container {
-  max-width: 1040px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 0 48px;
+  padding: 0 40px;
 }
 
 /* ── Section spacing ──────────────────── */
 .section {
-  padding: 96px 0;
+  padding: 80px 0;
   border-top: 1px solid var(--border);
-}
-
-/* ── Display headline — Fraunces serif ── */
-.display-head {
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 4.5vw, 3.2rem);
-  font-weight: 600;
-  font-variation-settings: 'opsz' 72;
-  line-height: 1.15;
-  letter-spacing: -0.025em;
-  color: var(--ink);
-  margin-bottom: 36px;
-}
-
-/* ── Two-column body ──────────────────── */
-.two-col {
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 56px;
-}
-
-.body-para {
-  font-size: 13.5px;
-  line-height: 1.85;
-  color: var(--ink-mid);
 }
 
 /* ── Reveal animation ─────────────────── */
 .reveal {
   opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 600ms cubic-bezier(0.4, 0, 0.2, 1), transform 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(16px);
+  transition: opacity 700ms cubic-bezier(0.4, 0, 0.2, 1), transform 700ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .reveal.visible { opacity: 1; transform: none; }
 
-/* ── Nav pill ─────────────────────────── */
-.nav-pill {
-  background: var(--ink) !important;
-  color: var(--bg) !important;
-  border-radius: 3px;
-  padding: 5px 14px;
+/* ── Pill / Tag ───────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-hover);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+  background: transparent;
+  white-space: nowrap;
+}
+.pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ink-light);
+  display: inline-block;
+  flex-shrink: 0;
+}
+.pill-active .pill-dot {
+  background: #4ade80; /* green dot for active/current */
 }
 
-/* ── Link style ───────────────────────── */
-.text-link {
+/* ── Label ────────────────────────────── */
+.label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+}
+
+/* ── Underline link (artsandiego style) ── */
+.u-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--ink-mid);
-  border-bottom: 1px solid var(--ink-dim);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  border-bottom: 1px solid var(--border-hover);
   padding-bottom: 1px;
-  font-size: 12px;
-  font-family: var(--font-mono);
   transition: color var(--transition), border-color var(--transition);
 }
-.text-link:hover { color: var(--ink); border-color: var(--ink-light); }
-
-/* ── Ornamental rule ──────────────────── */
-.orn-rule {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--ink-dim);
-  font-size: 9px;
-  font-family: var(--font-mono);
-  margin: 52px 0;
+.u-link:hover {
+  color: var(--ink);
+  border-color: var(--ink);
 }
-.orn-rule::before, .orn-rule::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--border);
+
+/* ── Highlights ───────────────────────── */
+.hi {
+  color: var(--ink);
+  background: rgba(255,255,255,0.06);
+  padding: 1px 6px;
+  border-radius: 3px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
 }
 
 /* ── Selection ────────────────────────── */
 ::selection {
-  background: var(--accent);
+  background: #333;
   color: #fff;
 }
 
 /* ── Responsive ───────────────────────── */
 @media (max-width: 768px) {
-  .two-col { grid-template-columns: 1fr; gap: 32px; }
-  .display-head { font-size: clamp(1.6rem, 6vw, 2.4rem); }
-  .container { padding: 0 24px; }
-  .section { padding: 64px 0; }
+  .container { padding: 0 20px; }
+  .section { padding: 56px 0; }
 }

@@ -1,9 +1,12 @@
 <template>
   <nav class="nav">
-    <!-- Logo — monospace terminal style -->
-    <router-link to="/" class="logo">
-      <span class="logo-bracket">[</span><span class="logo-text">0xffxa</span><span class="logo-bracket">]</span>
-    </router-link>
+    <!-- Logo -->
+    <router-link to="/" class="logo">0xffxa</router-link>
+
+    <!-- Nav links — artsandiego style: minimal, right-aligned -->
+    <div class="nav-links">
+      <a href="mailto:0xffxa@gmail.com" class="nav-item">Contact</a>
+    </div>
   </nav>
 </template>
 
@@ -19,58 +22,46 @@ defineProps({ personal: Object })
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 48px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background: rgba(10,10,15,0.6);
-  border-bottom: 1px solid var(--border);
+  padding: 20px 40px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid #111;
 }
 
 .logo {
-  display: flex;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink);
   transition: opacity var(--transition);
 }
-.logo:hover { opacity: 0.7; }
-.logo-bracket { color: var(--ink-light); }
-.logo-text { color: var(--ink); }
+.logo:hover { opacity: 0.6; }
 
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 
 .nav-item {
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-family: var(--font-sans);
+  font-size: 12px;
   font-weight: 400;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-light);
+  color: var(--ink-mid);
   padding: 6px 14px;
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
   border: 1px solid transparent;
   transition: color var(--transition), border-color var(--transition), background var(--transition);
 }
 .nav-item:hover {
-  color: var(--ink-mid);
-  border-color: var(--border);
+  color: var(--ink);
+  border-color: var(--border-hover);
+  background: rgba(255,255,255,0.04);
 }
-
-.nav-pill {
-  background: var(--ink);
-  color: var(--bg) !important;
-  border-color: var(--ink) !important;
-}
-.nav-pill:hover { color: var(--bg) !important; }
 
 @media (max-width: 480px) {
-  .nav { padding: 18px 20px; }
-  .nav-item { font-size: 10px; padding: 5px 10px; }
+  .nav { padding: 16px 20px; }
 }
 </style>
