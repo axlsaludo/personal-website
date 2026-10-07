@@ -1,15 +1,12 @@
 <template>
   <div class="obsidian-container" ref="containerEl">
-    <!-- Graph HUD Header (Clean Obsidian Minimalist) -->
+    <!-- Graph Header (Clean Obsidian Minimalist) -->
     <div class="graph-header">
       <div class="graph-meta">
-        <span class="graph-tag">// KNOWLEDGE GRAPH</span>
         <h3 class="graph-title">Skill Architecture</h3>
       </div>
 
       <div class="graph-controls">
-        <span class="graph-stat">{{ nodesData.length }} NODES</span>
-        <span class="graph-stat">{{ edgesData.length }} EDGES</span>
         <div class="zoom-btn-group">
           <button class="ctrl-btn" @click="zoomIn" title="Zoom in">+</button>
           <button class="ctrl-btn" @click="zoomOut" title="Zoom out">−</button>
@@ -22,9 +19,9 @@
     <div class="svg-viewport" ref="viewportEl">
       <svg ref="svgEl" class="graph-svg"></svg>
 
-      <!-- Bottom HUD Hint -->
+      <!-- Bottom Hint -->
       <div class="graph-hint">
-        <span>Click &amp; drag nodes · Scroll or pinch to zoom</span>
+        <span>Click &amp; drag nodes to explore skills · Scroll to zoom</span>
       </div>
     </div>
   </div>
@@ -41,81 +38,92 @@ const svgEl = ref(null)
 let simulation = null
 let zoomBehavior = null
 let gContainer = null
-let currentTransform = d3.zoomIdentity
 
-// ── Skills & Architecture Data ─────────────────────
-// Based on Credly certifications & Cloud/AI skill set
+// ── Skills Data Structured by Credly Credentials ──
+// GCP, Artificial Intelligence & Gemini, Networking & Systems
 const nodesData = [
+  // Primary Domain Hubs
   { id: 'gcp', label: 'Google Cloud (GCP)' },
-  { id: 'cloud-arch', label: 'Cloud Architecture' },
+  { id: 'ai', label: 'Artificial Intelligence' },
+  { id: 'networking', label: 'Networking & Systems' },
+
+  // Skills under Google Cloud (ACE, CDL, GCCF, K8s badges)
+  { id: 'gke', label: 'Kubernetes (GKE)' },
+  { id: 'compute', label: 'Compute Engine & VMs' },
+  { id: 'cloud-iam', label: 'Cloud IAM & Security' },
+  { id: 'cloud-vpc', label: 'VPC & Cloud Networking' },
   { id: 'terraform', label: 'Terraform & IaC' },
-  { id: 'cdl', label: 'Cloud Digital Leader' },
-  { id: 'gccf', label: 'Cloud Computing Foundations' },
+  { id: 'cloud-arch', label: 'Cloud Architecture' },
+  { id: 'storage-db', label: 'Cloud Storage & Databases' },
+  { id: 'monitoring', label: 'Cloud Monitoring & Ops' },
+
+  // Skills under Artificial Intelligence (Gemini Specialist, GenAI Leader, ADK)
   { id: 'gemini', label: 'Gemini Enterprise' },
   { id: 'agents', label: 'AI Agent Development' },
-  { id: 'genai', label: 'Generative AI Leader' },
-  { id: 'google-ai', label: 'Google AI Professional' },
-  { id: 'adk', label: 'ADK Builder' },
-  { id: 'python', label: 'Python & Tooling' },
-  { id: 'k8s', label: 'Kubernetes (GKE)' },
-  { id: 'docker', label: 'Docker Containers' },
-  { id: 'cicd', label: 'CI/CD Pipelines' },
-  { id: 'linux', label: 'Linux & Shell Scripting' },
-  { id: 'infra-auto', label: 'Infra Automation' },
+  { id: 'adk', label: 'Agent Development Kit (ADK)' },
+  { id: 'prompt-eng', label: 'Prompt Engineering & LLMs' },
+  { id: 'ai-workflows', label: 'AI Workflow Automation' },
+  { id: 'python', label: 'Python & Scripting' },
+
+  // Skills under Networking & Systems (CCNA Routing, Switching & Wireless)
   { id: 'ccna', label: 'CCNA Routing & Switching' },
-  { id: 'networking', label: 'VPC & Hybrid Mesh' },
-  { id: 'security', label: 'Cloud IAM & Security' },
-  { id: 'wireless', label: 'Wireless Essentials' }
+  { id: 'tcp-ip', label: 'TCP/IP & DNS Architecture' },
+  { id: 'firewalls', label: 'Firewalls & Network Security' },
+  { id: 'wireless', label: 'Wireless Essentials' },
+  { id: 'linux', label: 'Linux Administration' },
+  { id: 'docker', label: 'Docker & Containers' },
+  { id: 'cicd', label: 'CI/CD Automation' }
 ]
 
 const edgesData = [
-  // GCP Core
-  { source: 'gcp', target: 'cloud-arch' },
+  // ── Under Google Cloud (GCP) ─────────────────────
+  { source: 'gcp', target: 'gke' },
+  { source: 'gcp', target: 'compute' },
+  { source: 'gcp', target: 'cloud-iam' },
+  { source: 'gcp', target: 'cloud-vpc' },
   { source: 'gcp', target: 'terraform' },
-  { source: 'gcp', target: 'k8s' },
-  { source: 'gcp', target: 'networking' },
-  { source: 'gcp', target: 'security' },
-  { source: 'gcp', target: 'cdl' },
-  { source: 'gcp', target: 'gccf' },
+  { source: 'gcp', target: 'cloud-arch' },
+  { source: 'gcp', target: 'storage-db' },
+  { source: 'gcp', target: 'monitoring' },
 
-  // AI & Gemini Core
-  { source: 'gemini', target: 'agents' },
-  { source: 'gemini', target: 'genai' },
-  { source: 'gemini', target: 'google-ai' },
-  { source: 'agents', target: 'adk' },
-  { source: 'agents', target: 'python' },
-  { source: 'google-ai', target: 'genai' },
-  { source: 'python', target: 'infra-auto' },
+  // ── Under Artificial Intelligence ────────────────
+  { source: 'ai', target: 'gemini' },
+  { source: 'ai', target: 'agents' },
+  { source: 'ai', target: 'adk' },
+  { source: 'ai', target: 'prompt-eng' },
+  { source: 'ai', target: 'ai-workflows' },
+  { source: 'ai', target: 'python' },
 
-  // DevOps & Containers
-  { source: 'k8s', target: 'docker' },
-  { source: 'k8s', target: 'cloud-arch' },
-  { source: 'docker', target: 'cicd' },
-  { source: 'docker', target: 'linux' },
-  { source: 'cicd', target: 'infra-auto' },
-  { source: 'terraform', target: 'infra-auto' },
-  { source: 'linux', target: 'infra-auto' },
+  // ── Under Networking & Systems ───────────────────
+  { source: 'networking', target: 'ccna' },
+  { source: 'networking', target: 'tcp-ip' },
+  { source: 'networking', target: 'firewalls' },
+  { source: 'networking', target: 'wireless' },
+  { source: 'networking', target: 'linux' },
+  { source: 'networking', target: 'docker' },
+  { source: 'networking', target: 'cicd' },
 
-  // Networking & Security
-  { source: 'ccna', target: 'networking' },
-  { source: 'ccna', target: 'wireless' },
-  { source: 'networking', target: 'security' },
-  { source: 'security', target: 'cloud-arch' },
-
-  // Cross-domain links (Obsidian knowledge web)
-  { source: 'gcp', target: 'gemini' },
-  { source: 'cdl', target: 'genai' },
-  { source: 'adk', target: 'gcp' }
+  // ── Cross-Domain Structural Links (Interconnected Web) ──
+  { source: 'gcp', target: 'ai' },               // Vertex AI & Gemini on GCP
+  { source: 'gcp', target: 'networking' },       // Hybrid & Cloud Connectivity
+  { source: 'gke', target: 'docker' },           // Kubernetes orchestrates Docker
+  { source: 'docker', target: 'cicd' },          // Containerized CI/CD
+  { source: 'terraform', target: 'cicd' },       // GitOps / IaC pipelines
+  { source: 'agents', target: 'gemini' },        // Gemini Agent specialist
+  { source: 'agents', target: 'adk' },           // ADK framework
+  { source: 'agents', target: 'python' },        // Python agent tools
+  { source: 'cloud-vpc', target: 'ccna' },       // Routing applied to Cloud VPC
+  { source: 'cloud-iam', target: 'firewalls' },  // Defense in depth
+  { source: 'compute', target: 'linux' }         // Linux on Compute Engine
 ]
 
-// ── Graph Initialization (Hellyom-based Obsidian logic) ─────
+// ── Graph Initialization (D3 Force Simulation) ─────
 const initGraph = () => {
   if (!svgEl.value || !viewportEl.value) return
 
   const width = viewportEl.value.clientWidth
   const height = Math.max(420, Math.min(width * 0.62, 540))
 
-  // Clean existing SVG elements
   d3.select(svgEl.value).selectAll('*').remove()
 
   const svg = d3.select(svgEl.value)
@@ -137,36 +145,34 @@ const initGraph = () => {
   const nodes = nodesData.map(d => ({
     ...d,
     linkCount: linkCount[d.id] || 1,
-    r: Math.max(5, 4.5 + Math.sqrt(linkCount[d.id] || 1) * 2.2)
+    r: Math.max(5.5, 4.5 + Math.sqrt(linkCount[d.id] || 1) * 2.4)
   }))
 
   const links = edgesData.map(d => ({ ...d }))
 
-  // Main Zoom container
   gContainer = svg.append('g').attr('class', 'graph-root')
 
   zoomBehavior = d3.zoom()
     .scaleExtent([0.3, 3.5])
     .on('zoom', (event) => {
-      currentTransform = event.transform
       gContainer.attr('transform', event.transform)
     })
 
   svg.call(zoomBehavior)
 
-  // Force simulation (D3 force physics matching Hellyom Obsidian graph)
+  // Force simulation matching Hellyom Obsidian graph
   simulation = d3.forceSimulation(nodes)
     .force('link', d3.forceLink(links)
       .id(d => d.id)
       .distance(d => {
         const sourceLinks = d.source.linkCount || 1
         const targetLinks = d.target.linkCount || 1
-        return Math.min(130, Math.max(55, (sourceLinks + targetLinks) * 8.5))
+        return Math.min(135, Math.max(60, (sourceLinks + targetLinks) * 7.5))
       })
     )
-    .force('charge', d3.forceManyBody().strength(-280))
+    .force('charge', d3.forceManyBody().strength(-290))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collide', d3.forceCollide().radius(d => d.r + 14).iterations(2))
+    .force('collide', d3.forceCollide().radius(d => d.r + 15).iterations(2))
     .alphaDecay(0.022)
     .alphaMin(0.001)
 
@@ -190,10 +196,9 @@ const initGraph = () => {
     .attr('class', 'graph-node')
     .attr('r', d => d.r)
     .attr('fill', d => {
-      // Obsidian-style subtle luminance based on connectivity
-      if (d.linkCount >= 5) return '#e4e4e7' // Hubs: brighter
-      if (d.linkCount >= 3) return '#a1a1aa' // Mid: light gray
-      return '#71717a'                      // Leaves: subtle slate
+      if (d.linkCount >= 6) return '#f4f4f5' // Top Hubs (GCP, AI, Networking)
+      if (d.linkCount >= 3) return '#a1a1aa' // Mid skills
+      return '#71717a'                      // Specific skills
     })
     .call(d3.drag()
       .on('start', dragstarted)
@@ -201,7 +206,7 @@ const initGraph = () => {
       .on('end', dragended)
     )
 
-  // 3. Draw Labels (positioned next to nodes, clean Obsidian style)
+  // 3. Draw Labels
   const text = gContainer.append('g')
     .attr('class', 'texts')
     .selectAll('text')
@@ -240,7 +245,6 @@ const initGraph = () => {
         if (l.target.id === d.id) neighborIds.add(l.source.id)
       })
 
-      // Dim non-neighbors
       node
         .attr('opacity', n => neighborIds.has(n.id) ? 1 : 0.15)
         .attr('fill', n => n.id === d.id ? '#ffffff' : (neighborIds.has(n.id) ? '#e4e4e7' : '#52525b'))
@@ -258,7 +262,7 @@ const initGraph = () => {
       node
         .attr('opacity', 1)
         .attr('fill', d => {
-          if (d.linkCount >= 5) return '#e4e4e7'
+          if (d.linkCount >= 6) return '#f4f4f5'
           if (d.linkCount >= 3) return '#a1a1aa'
           return '#71717a'
         })
@@ -273,7 +277,7 @@ const initGraph = () => {
         .attr('stroke-width', 1)
     })
 
-  // Drag handlers (Hellyom Obsidian drag implementation)
+  // Drag handlers
   function dragstarted(event) {
     if (!event.active) simulation.alphaTarget(0.3).restart()
     event.subject.fx = event.subject.x
@@ -309,7 +313,6 @@ const resetGraph = () => {
   if (simulation) simulation.alpha(0.6).restart()
 }
 
-// ── Resize handler ─────────────────────────────────
 const handleResize = () => {
   initGraph()
 }
@@ -336,32 +339,22 @@ onUnmounted(() => {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
 }
 
-/* ── Obsidian HUD Header ─────────────────────────── */
+/* ── Obsidian Header ─────────────────────────────── */
 .graph-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.graph-tag {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  color: var(--ink-light);
-  display: block;
 }
 
 .graph-title {
   font-family: var(--font-sans);
-  font-size: 14.5px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--ink);
   letter-spacing: -0.01em;
 }
@@ -369,25 +362,12 @@ onUnmounted(() => {
 .graph-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.graph-stat {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  color: var(--ink-light);
-  padding: 3px 8px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .zoom-btn-group {
   display: flex;
   align-items: center;
-  gap: 3px;
-  margin-left: 4px;
+  gap: 4px;
 }
 
 .ctrl-btn {
@@ -458,6 +438,5 @@ onUnmounted(() => {
 @media (max-width: 640px) {
   .graph-header { padding: 12px 14px; }
   .graph-hint { font-size: 9px; left: 14px; bottom: 8px; }
-  .graph-stat { display: none; }
 }
 </style>
