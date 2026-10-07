@@ -2,50 +2,49 @@
   <div class="home-page">
     <div class="container">
 
-      <!-- ── Hero ─────────────────────────────── -->
+      <!-- ── Hero Section with Background Roman Columns ─ -->
       <section class="hero reveal" ref="heroEl">
-        <div class="hero-inner">
 
-          <!-- Left: text content -->
-          <div class="hero-text">
-            <h1 class="hero-headline">
-              <span class="headline-regular">Cloud Developer</span><br>
-              <em class="headline-italic">&amp; AI Engineer</em>
-            </h1>
+        <!-- Background Roman Columns (static atmospheric backdrop, no hover animations) -->
+        <div class="hero-bg-columns" aria-hidden="true">
+          <img
+            src="/roman-columns.png"
+            alt=""
+            class="bg-columns-img"
+            loading="eager"
+          />
+          <div class="bg-columns-fade"></div>
+        </div>
 
-            <p class="hero-sub">
-              Building resilient cloud infrastructure and AI-powered systems.
-              Based in the Philippines, working worldwide.
-            </p>
+        <!-- Hero Content Foreground -->
+        <div class="hero-content">
 
-            <div class="hero-ctas">
-              <a :href="`mailto:${personal?.email}`" class="cta-primary">
-                Get in touch <span class="arrow">→</span>
-              </a>
-              <a v-for="s in personal?.socials?.slice(0,2)" :key="s.label"
-                 :href="s.url" target="_blank" rel="noopener" class="text-arrow-link">
-                <span class="tal-text">{{ s.label }}</span>
-                <span class="tal-arrow">↗</span>
-              </a>
-            </div>
+          <!-- Prominent Name Highlight -->
+          <div class="hero-intro">
+            <span class="hi name-highlight">{{ personal?.name || 'Kurt Axl Saludo' }}</span>
           </div>
 
-          <!-- Right: Roman Columns Illustration -->
-          <div
-            class="hero-columns-wrap"
-            ref="columnsEl"
-            @mousemove="onMouseMove"
-            @mouseleave="onMouseLeave"
-          >
-            <div class="columns-frame" :style="tiltStyle">
-              <img
-                src="/roman-columns.png"
-                alt="Classical Roman Columns"
-                class="columns-img"
-                loading="eager"
-              />
-              <div class="columns-overlay-gradient"></div>
-            </div>
+          <!-- Headline -->
+          <h1 class="hero-headline">
+            <span class="headline-regular">Cloud Developer</span>
+            <em class="headline-italic">&amp; AI Engineer</em>
+          </h1>
+
+          <!-- Tagline (without "Based in the Philippines...") -->
+          <p class="hero-sub">
+            Building resilient cloud infrastructure, automating workflows, and designing AI-powered systems.
+          </p>
+
+          <!-- CTAs -->
+          <div class="hero-ctas">
+            <a :href="`mailto:${personal?.email}`" class="cta-primary">
+              Get in touch <span class="arrow">→</span>
+            </a>
+            <a v-for="s in personal?.socials?.slice(0,2)" :key="s.label"
+               :href="s.url" target="_blank" rel="noopener" class="text-arrow-link">
+              <span class="tal-text">{{ s.label }}</span>
+              <span class="tal-arrow">↗</span>
+            </a>
           </div>
 
         </div>
@@ -54,14 +53,15 @@
       <!-- Divider -->
       <div class="h-divider"></div>
 
-      <!-- ── About / Body ──────────────────────── -->
+      <!-- ── About / Experience / Certs ────────── -->
       <section class="body-section reveal" ref="bodyEl">
         <div class="body-grid">
 
-          <!-- Col left: statement -->
+          <!-- Col left: statement with name & experience -->
           <div class="col-statement">
             <p class="label statement-label">About</p>
             <p class="statement-text">
+              I'm <strong class="name-mention">{{ personal?.name || 'Kurt Axl Saludo' }}</strong>.
               With <span class="hi">{{ experienceDuration }}</span> of experience, I've always had a passion for building things.
               Whether it's crafting resilient infrastructure, automating workflows, or designing clean architectures,
               I believe that <strong>good engineering</strong> is about solving real problems —
@@ -114,6 +114,14 @@
         </div>
       </section>
 
+      <!-- Divider -->
+      <div class="h-divider"></div>
+
+      <!-- ── Obsidian Skill Graph View ─────────── -->
+      <section class="graph-section reveal" ref="graphEl">
+        <ObsidianGraph />
+      </section>
+
     </div>
   </div>
 </template>
@@ -122,6 +130,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { experience } from '../portfolio.config.js'
 import { useCredly } from '../composables/useCredly.js'
+import ObsidianGraph from '../components/ObsidianGraph.vue'
 
 defineProps({ personal: Object })
 
@@ -141,47 +150,13 @@ const experienceDuration = computed(() => {
   return `${diffYears} year${diffYears !== '1' ? 's' : ''}`
 })
 
-const heroEl    = ref(null)
-const bodyEl    = ref(null)
-const columnsEl = ref(null)
-
-// ── Interactive Subtle 3D Tilt Effect ──────────────────────
-const tiltX = ref(0)
-const tiltY = ref(0)
-const isHovering = ref(false)
-
-const tiltStyle = computed(() => {
-  if (!isHovering.value) {
-    return {
-      transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
-      transition: 'transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 300ms ease'
-    }
-  }
-  return {
-    transform: `perspective(1000px) rotateX(${tiltX.value}deg) rotateY(${tiltY.value}deg) scale3d(1.025, 1.025, 1.025)`,
-    transition: 'transform 80ms ease-out, filter 300ms ease'
-  }
-})
-
-const onMouseMove = (e) => {
-  if (!columnsEl.value) return
-  isHovering.value = true
-  const rect = columnsEl.value.getBoundingClientRect()
-  const x = (e.clientX - rect.left) / rect.width - 0.5
-  const y = (e.clientY - rect.top) / rect.height - 0.5
-  tiltX.value = +( -y * 8 ).toFixed(2)
-  tiltY.value = +( x * 10 ).toFixed(2)
-}
-
-const onMouseLeave = () => {
-  isHovering.value = false
-  tiltX.value = 0
-  tiltY.value = 0
-}
+const heroEl  = ref(null)
+const bodyEl  = ref(null)
+const graphEl = ref(null)
 
 onMounted(() => {
   fetchBadges()
-  ;[heroEl, bodyEl].forEach((el, i) => {
+  ;[heroEl, bodyEl, graphEl].forEach((el, i) => {
     if (!el.value) return
     setTimeout(() => el.value.classList.add('visible'), 80 + i * 140)
   })
@@ -191,7 +166,7 @@ onMounted(() => {
 <style scoped>
 .home-page {
   min-height: 100vh;
-  padding: 130px 0 80px;
+  padding: 130px 0 90px;
 }
 
 /* ── Divider ──────────────────────────── */
@@ -201,21 +176,66 @@ onMounted(() => {
   margin: 0;
 }
 
-/* ── Hero layout — text left, columns right ─ */
+/* ── Hero section ─────────────────────── */
 .hero {
-  padding: 56px 0 64px;
+  position: relative;
+  padding: 64px 0 76px;
+  overflow: hidden;
 }
 
-.hero-inner {
-  display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: 48px;
-  align-items: center;
+/* ── Background Roman Columns ─────────── */
+/* Pure static background graphic — NO HOVER ANIMATIONS */
+.hero-bg-columns {
+  position: absolute;
+  top: 0;
+  right: -10px;
+  bottom: 0;
+  width: 480px;
+  max-width: 50%;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
 }
 
-/* ── Hero text ────────────────────────── */
-.hero-text {
+.bg-columns-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom right;
+  opacity: 0.32;
+  filter: contrast(1.1) brightness(0.9);
+}
+
+.bg-columns-fade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to right, #000000 0%, rgba(0,0,0,0.6) 20%, transparent 60%),
+    linear-gradient(to bottom, transparent 65%, #000000 100%);
+  pointer-events: none;
+}
+
+/* ── Hero content foreground ──────────── */
+.hero-content {
+  position: relative;
   z-index: 2;
+  max-width: 620px;
+}
+
+.hero-intro {
+  margin-bottom: 18px;
+}
+
+.name-highlight {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 4px;
 }
 
 .hero-headline {
@@ -233,6 +253,7 @@ onMounted(() => {
   font-style: italic;
   font-weight: 400;
   letter-spacing: -0.01em;
+  color: #f4f4f5;
 }
 
 .headline-regular {
@@ -244,7 +265,7 @@ onMounted(() => {
   font-size: 14.5px;
   color: var(--ink-mid);
   line-height: 1.7;
-  max-width: 420px;
+  max-width: 460px;
   margin-bottom: 34px;
 }
 
@@ -256,7 +277,6 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-/* Primary pill button */
 .cta-primary {
   display: inline-flex;
   align-items: center;
@@ -281,7 +301,6 @@ onMounted(() => {
 }
 .cta-primary:hover .arrow { transform: translateX(4px); }
 
-/* Sliding underline links */
 .text-arrow-link {
   display: inline-flex;
   align-items: center;
@@ -313,51 +332,6 @@ onMounted(() => {
 }
 .text-arrow-link:hover .tal-arrow { transform: translate(2px, -2px); }
 
-/* ── Roman Columns Graphic ────────────── */
-.hero-columns-wrap {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  user-select: none;
-  perspective: 1000px;
-}
-
-.columns-frame {
-  position: relative;
-  width: 100%;
-  max-width: 420px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: crosshair;
-}
-
-.columns-img {
-  width: 100%;
-  height: auto;
-  max-height: 480px;
-  object-fit: contain;
-  filter: contrast(1.08) brightness(0.95);
-  opacity: 0.85;
-  transition: opacity 300ms ease, filter 300ms ease;
-  pointer-events: none;
-}
-
-.columns-frame:hover .columns-img {
-  opacity: 1;
-  filter: contrast(1.15) brightness(1.08) drop-shadow(0 0 20px rgba(255, 255, 255, 0.08));
-}
-
-/* Seamless blend gradient at the bottom */
-.columns-overlay-gradient {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 25%;
-  background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.85) 80%, #000000 100%);
-  pointer-events: none;
-}
-
 /* ── Body section ─────────────────────── */
 .body-section {
   padding: 64px 0;
@@ -377,6 +351,10 @@ onMounted(() => {
   line-height: 1.85;
   color: var(--ink-mid);
 }
+.name-mention {
+  color: var(--ink);
+  font-weight: 600;
+}
 .statement-text strong {
   color: var(--ink);
   font-weight: 500;
@@ -384,7 +362,6 @@ onMounted(() => {
 
 .detail-label { margin-bottom: 12px; }
 
-/* Role card — lifts on hover */
 .role-card {
   display: flex;
   flex-direction: column;
@@ -417,7 +394,6 @@ onMounted(() => {
   gap: 4px;
 }
 
-/* Cert row — slides right, badge scales */
 .cert-row {
   display: flex;
   align-items: center;
@@ -463,48 +439,40 @@ onMounted(() => {
   color: var(--ink-mid);
 }
 
-/* ── Responsive & Mobile Friendly ──────── */
+/* ── Graph Section ────────────────────── */
+.graph-section {
+  padding: 64px 0;
+}
+
+/* ── Responsive ───────────────────────── */
 @media (max-width: 900px) {
-  .hero-inner {
-    grid-template-columns: 1fr;
-    gap: 44px;
-  }
-  .columns-frame {
-    max-width: 320px;
-  }
-  .columns-img {
-    max-height: 360px;
+  .hero-bg-columns {
+    width: 360px;
+    opacity: 0.22;
   }
 }
 
 @media (max-width: 768px) {
   .home-page { padding: 110px 0 60px; }
-  .hero { padding: 36px 0 36px; }
+  .hero { padding: 40px 0 44px; }
   .hero-headline { font-size: clamp(2rem, 9vw, 2.8rem); }
   .body-grid { grid-template-columns: 1fr; gap: 40px; }
   .body-section { padding: 48px 0; }
+  .graph-section { padding: 48px 0; }
 
-  /* Mobile columns treatment: centered, elegant height, no overflow */
-  .hero-columns-wrap {
-    margin-top: 8px;
-    width: 100%;
-  }
-  .columns-frame {
-    max-width: 260px;
-  }
-  .columns-img {
-    max-height: 270px;
-    opacity: 0.75;
+  .hero-bg-columns {
+    width: 280px;
+    max-width: 80%;
+    right: -40px;
+    opacity: 0.18;
   }
 }
 
 @media (max-width: 480px) {
   .hero-headline { font-size: clamp(1.8rem, 10vw, 2.3rem); }
-  .columns-frame {
-    max-width: 210px;
-  }
-  .columns-img {
-    max-height: 230px;
+  .hero-bg-columns {
+    width: 220px;
+    opacity: 0.14;
   }
 }
 </style>

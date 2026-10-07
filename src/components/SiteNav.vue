@@ -1,9 +1,12 @@
 <template>
   <nav class="nav">
-    <!-- Logo -->
-    <router-link to="/" class="logo">0xffxa</router-link>
+    <!-- Logo with Kurt Axl Saludo -->
+    <router-link to="/" class="logo">
+      <span class="logo-name">Kurt Axl Saludo</span>
+      <span class="logo-handle">0xffxa</span>
+    </router-link>
 
-    <!-- Nav links — artsandiego style: minimal, right-aligned -->
+    <!-- Nav links — minimal, right-aligned -->
     <div class="nav-links">
       <a href="mailto:0xffxa@gmail.com" class="nav-item">Contact</a>
     </div>
@@ -22,22 +25,39 @@ defineProps({ personal: Object })
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 40px;
+  padding: 18px 40px;
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid #111;
+  border-bottom: 1px solid #141414;
 }
 
 .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--ink);
+  text-decoration: none;
   transition: opacity var(--transition);
 }
-.logo:hover { opacity: 0.6; }
+.logo:hover { opacity: 0.7; }
+
+.logo-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.logo-handle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-light);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
 
 .nav-links {
   display: flex;
@@ -62,6 +82,7 @@ defineProps({ personal: Object })
 }
 
 @media (max-width: 480px) {
-  .nav { padding: 16px 20px; }
+  .nav { padding: 14px 20px; }
+  .logo-handle { display: none; }
 }
 </style>
