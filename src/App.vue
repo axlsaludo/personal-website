@@ -8,11 +8,16 @@
         <component :is="Component" :personal="personal" />
       </transition>
     </router-view>
+
+    <ContactDrawer :personal="personal" />
+    <Toaster position="bottom-right" theme="dark" />
   </div>
 </template>
 
 <script setup>
+import { Toaster } from 'vue-sonner'
 import SiteNav from './components/SiteNav.vue'
+import ContactDrawer from './components/ContactDrawer.vue'
 import { personal } from './portfolio.config.js'
 </script>
 

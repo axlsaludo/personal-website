@@ -8,12 +8,14 @@
 
     <!-- Nav links — minimal, right-aligned -->
     <div class="nav-links">
-      <a href="mailto:0xffxa@gmail.com" class="nav-item">Contact</a>
+      <button type="button" class="nav-item" @click="openContact">Contact</button>
     </div>
   </nav>
 </template>
 
 <script setup>
+import { openContact } from '../composables/useUI.js'
+
 defineProps({ personal: Object })
 </script>
 
