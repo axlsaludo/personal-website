@@ -1,6 +1,6 @@
 <template>
   <div class="app-layout">
-    <SiteNav :personal="personal" />
+    <SiteNav v-if="!isStandalone" :personal="personal" />
     
     <!-- Route transitions -->
     <router-view v-slot="{ Component }">
@@ -9,16 +9,21 @@
       </transition>
     </router-view>
 
-    <ContactDrawer :personal="personal" />
+    <ContactDrawer v-if="!isStandalone" :personal="personal" />
     <Toaster position="bottom-right" theme="dark" />
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { Toaster } from 'vue-sonner'
 import SiteNav from './components/SiteNav.vue'
 import ContactDrawer from './components/ContactDrawer.vue'
 import { personal } from './portfolio.config.js'
+
+const route = useRoute()
+const isStandalone = computed(() => Boolean(route.meta?.standalone))
 </script>
 
 <style scoped>

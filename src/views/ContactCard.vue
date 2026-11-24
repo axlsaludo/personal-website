@@ -1,0 +1,894 @@
+<template>
+  <main class="card-viewport">
+    <div class="ambient-glow" aria-hidden="true"></div>
+
+    <div
+      class="card-stage"
+      @pointermove="onPointerMove"
+      @pointerleave="onPointerLeave"
+    >
+      <div
+        class="card-tilt"
+        :style="tiltStyle"
+      >
+        <div class="card-flipper" :class="{ 'is-flipped': flipped }">
+          <!-- ── Front Face ───────────────────────────── -->
+          <section
+            class="card-face card-face-front"
+            :aria-hidden="flipped"
+          >
+            <div class="card-glare" :style="glareStyle" aria-hidden="true"></div>
+
+            <div class="card-top-meta">
+              <div class="meta-pills">
+                <span class="handle-chip">0xffxa</span>
+                <span class="loc-chip">
+                  <span class="status-dot" aria-hidden="true"></span>
+                  Manila, PH
+                </span>
+              </div>
+              <button
+                type="button"
+                class="flip-btn"
+                aria-label="Show large QR code"
+                @click="flipped = true"
+              >
+                QR ↻
+              </button>
+            </div>
+
+            <div class="identity-block">
+              <div class="avatar-frame">
+                <img
+                  src="/contact-card.png"
+                  :alt="displayName"
+                  class="avatar-img"
+                />
+              </div>
+              <div class="identity-text">
+                <h1 class="card-name">{{ displayName }}</h1>
+                <p class="card-subtitle">Cloud Developer &amp; AI Engineer</p>
+                <p v-if="currentJob" class="card-role">
+                  {{ currentJob.role }} · {{ currentJob.company }}
+                </p>
+              </div>
+            </div>
+
+            <div class="contact-stack">
+              <div class="contact-row email-row">
+                <div class="contact-row-main">
+                  <span class="row-label">Email</span>
+                  <a :href="`mailto:${email}`" class="row-value mono">{{ email }}</a>
+                </div>
+                <button
+                  type="button"
+                  class="mini-copy-btn"
+                  @click="handleCopyEmail"
+                >
+                  {{ copied ? 'Copied' : 'Copy' }}
+                </button>
+              </div>
+
+              <a
+                v-for="s in socials"
+                :key="s.label"
+                :href="s.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="contact-row social-row"
+              >
+                <div class="contact-row-main">
+                  <span class="row-label">{{ s.label }}</span>
+                  <span class="row-value">{{ formatHandle(s.url) }}</span>
+                </div>
+                <span class="row-arrow" aria-hidden="true">↗</span>
+              </a>
+            </div>
+
+            <div class="card-bottom-strip">
+              <button
+                type="button"
+                class="qr-preview-btn"
+                aria-label="Enlarge QR code"
+                @click="flipped = true"
+              >
+                <span class="qr-mini-frame">
+                  <img
+                    v-if="qrDataUrl"
+                    :src="qrDataUrl"
+                    alt="Contact QR code preview"
+                    class="qr-mini-img"
+                  />
+                </span>
+                <span class="qr-preview-copy">
+                  <span class="qr-preview-title">Scan QR</span>
+                  <span class="qr-preview-sub">Tap to enlarge</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                class="save-vcf-btn"
+                @click="downloadVCard"
+              >
+                Save .vcf
+              </button>
+            </div>
+          </section>
+
+          <!-- ── Back Face ────────────────────────────── -->
+          <section
+            class="card-face card-face-back"
+            :aria-hidden="!flipped"
+          >
+            <div class="card-glare" :style="glareStyle" aria-hidden="true"></div>
+
+            <div class="card-top-meta">
+              <span class="handle-chip">0xffxa · DIRECT CARD</span>
+              <button
+                type="button"
+                class="flip-btn"
+                aria-label="Back to contact details"
+                @click="flipped = false"
+              >
+                Front ↻
+              </button>
+            </div>
+
+            <div class="back-qr-wrap">
+              <div class="qr-large-frame">
+                <img
+                  v-if="qrDataUrl"
+                  :src="qrDataUrl"
+                  :alt="qrMode === 'vcard' ? 'vCard QR code' : 'Contact card link QR code'"
+                  class="qr-large-img"
+                />
+              </div>
+
+              <div class="qr-mode-switch" role="group" aria-label="QR payload mode">
+                <button
+                  type="button"
+                  class="mode-pill"
+                  :class="{ active: qrMode === 'vcard' }"
+                  @click="qrMode = 'vcard'"
+                >
+                  Save Contact
+                </button>
+                <button
+                  type="button"
+                  class="mode-pill"
+                  :class="{ active: qrMode === 'url' }"
+                  @click="qrMode = 'url'"
+                >
+                  Card Link
+                </button>
+              </div>
+
+              <div class="back-identity">
+                <p class="back-name">{{ displayName }}</p>
+                <p class="back-email">{{ email }}</p>
+              </div>
+            </div>
+
+            <div class="back-actions">
+              <button type="button" class="back-btn" @click="handleCopyEmail">
+                {{ copied ? 'Copied ✓' : 'Copy email' }}
+              </button>
+              <button type="button" class="back-btn back-btn-primary" @click="downloadVCard">
+                Download .vcf
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <p class="stage-caption">Tilt card to inspect · Tap QR to flip</p>
+  </main>
+</template>
+
+<script setup>
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import QRCode from 'qrcode'
+import { toast } from 'vue-sonner'
+import { experience } from '../portfolio.config.js'
+import { copyEmail } from '../composables/useUI.js'
+
+const props = defineProps({
+  personal: Object,
+})
+
+const currentJob = experience[0]
+const email = computed(() => props.personal?.email || '0xffxa@gmail.com')
+const displayName = computed(() => props.personal?.name || 'Kurt Axl Saludo')
+const locationLabel = computed(() => props.personal?.location || 'Manila, Philippines')
+const socials = computed(() => props.personal?.socials || [])
+
+const flipped = ref(false)
+const qrMode = ref('vcard')
+const qrDataUrl = ref('')
+const copied = ref(false)
+
+let copyTimer = null
+let rafId = null
+let reduceMotion = false
+
+const targetTiltX = ref(0)
+const targetTiltY = ref(0)
+const tiltX = ref(0)
+const tiltY = ref(0)
+const glareX = ref(50)
+const glareY = ref(50)
+const glareOpacity = ref(0)
+
+function formatHandle(url) {
+  return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
+}
+
+const vCardString = computed(() => {
+  const lines = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `FN:${displayName.value}`,
+    'N:Saludo;Kurt Axl;;;',
+    `TITLE:${currentJob?.role || 'Cloud Developer & AI Engineer'}`,
+    currentJob?.company ? `ORG:${currentJob.company}` : '',
+    `EMAIL;TYPE=INTERNET:${email.value}`,
+    `ADR;TYPE=HOME:;;${locationLabel.value};;;;`,
+    ...socials.value.map((s) => `URL:${s.url}`),
+    'END:VCARD',
+  ].filter(Boolean)
+  return lines.join('\r\n')
+})
+
+const qrPayload = computed(() => {
+  if (qrMode.value === 'url' && typeof window !== 'undefined') {
+    return window.location.href
+  }
+  return vCardString.value
+})
+
+async function generateQr() {
+  try {
+    qrDataUrl.value = await QRCode.toDataURL(qrPayload.value, {
+      width: 420,
+      margin: 2,
+      errorCorrectionLevel: 'M',
+      color: {
+        dark: '#0a0a0a',
+        light: '#ffffff',
+      },
+    })
+  } catch (err) {
+    console.error('QR generation failed:', err)
+  }
+}
+
+watch(qrPayload, generateQr)
+
+async function handleCopyEmail() {
+  const ok = await copyEmail(email.value)
+  if (!ok) return
+  copied.value = true
+  clearTimeout(copyTimer)
+  copyTimer = setTimeout(() => {
+    copied.value = false
+  }, 1800)
+}
+
+function downloadVCard() {
+  const blob = new Blob([vCardString.value], { type: 'text/vcard;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'kurt-axl-saludo.vcf'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+  toast.success('Contact card saved', { description: 'kurt-axl-saludo.vcf' })
+}
+
+function animateTilt() {
+  const ease = 0.16
+  tiltX.value += (targetTiltX.value - tiltX.value) * ease
+  tiltY.value += (targetTiltY.value - tiltY.value) * ease
+
+  const settled =
+    Math.abs(targetTiltX.value - tiltX.value) < 0.02 &&
+    Math.abs(targetTiltY.value - tiltY.value) < 0.02
+
+  if (settled) {
+    tiltX.value = targetTiltX.value
+    tiltY.value = targetTiltY.value
+    rafId = null
+    return
+  }
+
+  rafId = requestAnimationFrame(animateTilt)
+}
+
+function scheduleTiltFrame() {
+  if (rafId === null) {
+    rafId = requestAnimationFrame(animateTilt)
+  }
+}
+
+function onPointerMove(event) {
+  if (reduceMotion) return
+  const rect = event.currentTarget?.getBoundingClientRect()
+  if (!rect) return
+
+  const px = (event.clientX - rect.left) / rect.width
+  const py = (event.clientY - rect.top) / rect.height
+  const clampedX = Math.max(0, Math.min(1, px))
+  const clampedY = Math.max(0, Math.min(1, py))
+
+  const maxDeg = 11
+  targetTiltY.value = (clampedX - 0.5) * 2 * maxDeg
+  targetTiltX.value = -(clampedY - 0.5) * 2 * maxDeg
+  glareX.value = clampedX * 100
+  glareY.value = clampedY * 100
+  glareOpacity.value = 1
+  scheduleTiltFrame()
+}
+
+function onPointerLeave() {
+  targetTiltX.value = 0
+  targetTiltY.value = 0
+  glareOpacity.value = 0
+  scheduleTiltFrame()
+}
+
+const tiltStyle = computed(() => ({
+  transform: `rotateX(${tiltX.value.toFixed(2)}deg) rotateY(${tiltY.value.toFixed(2)}deg)`,
+}))
+
+const glareStyle = computed(() => ({
+  '--gx': `${glareX.value.toFixed(1)}%`,
+  '--gy': `${glareY.value.toFixed(1)}%`,
+  '--glare-opacity': glareOpacity.value,
+}))
+
+onMounted(() => {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  }
+  generateQr()
+})
+
+onUnmounted(() => {
+  clearTimeout(copyTimer)
+  if (rafId !== null) cancelAnimationFrame(rafId)
+})
+</script>
+
+<style scoped>
+.card-viewport {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px;
+  background: #000000;
+  overflow: hidden;
+}
+
+.ambient-glow {
+  position: absolute;
+  width: 560px;
+  height: 560px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.045) 0%, transparent 66%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.card-stage {
+  position: relative;
+  z-index: 1;
+  perspective: 1200px;
+  padding: 12px;
+}
+
+.card-tilt {
+  width: min(360px, calc(100vw - 32px));
+  height: 540px;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.card-flipper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 680ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.card-flipper.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid #242424;
+  background: linear-gradient(160deg, #111111 0%, #09090b 55%, #050505 100%);
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+
+.card-face-front {
+  pointer-events: auto;
+}
+
+.card-flipper.is-flipped .card-face-front {
+  pointer-events: none;
+}
+
+.card-face-back {
+  transform: rotateY(180deg);
+  pointer-events: none;
+}
+
+.card-flipper.is-flipped .card-face-back {
+  pointer-events: auto;
+}
+
+.card-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--glare-opacity, 0);
+  background: radial-gradient(
+    260px circle at var(--gx, 50%) var(--gy, 50%),
+    rgba(255, 255, 255, 0.085),
+    transparent 65%
+  );
+  transition: opacity 260ms ease;
+  z-index: 2;
+}
+
+/* ── Top Meta Bar ─────────────────────────────── */
+.card-top-meta {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.meta-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.handle-chip {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.loc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  color: var(--ink-light);
+}
+
+.status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #4ade80;
+}
+
+.flip-btn {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-mid);
+  padding: 4px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid #262626;
+  background: rgba(255, 255, 255, 0.03);
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+
+.flip-btn:hover {
+  color: var(--ink);
+  border-color: #3f3f46;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Identity Header ──────────────────────────── */
+.identity-block {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0 8px;
+  transform: translateZ(16px);
+}
+
+.avatar-frame {
+  width: 74px;
+  height: 74px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  overflow: hidden;
+  border: 1px solid #2a2a2a;
+  background: #000000;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.65);
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+  display: block;
+}
+
+.identity-text {
+  min-width: 0;
+}
+
+.card-name {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.card-subtitle {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: #e4e4e7;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.card-role {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--ink-mid);
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Contact Info Stack ───────────────────────── */
+.contact-stack {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.contact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #1b1b1e;
+  background: rgba(255, 255, 255, 0.025);
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+
+.contact-row:hover {
+  border-color: #2f2f35;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.social-row:hover {
+  transform: translateX(2px);
+}
+
+.contact-row-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.row-label {
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+}
+
+.row-value {
+  font-size: 12px;
+  color: #e4e4e7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-value.mono {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.mini-copy-btn {
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-mid);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid #2b2b30;
+  background: #141416;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+
+.mini-copy-btn:hover {
+  color: var(--ink);
+  border-color: #4a4a52;
+  background: #1d1d21;
+}
+
+.row-arrow {
+  font-size: 12px;
+  color: var(--ink-light);
+  transition: transform var(--transition), color var(--transition);
+}
+
+.social-row:hover .row-arrow {
+  color: var(--ink);
+  transform: translate(2px, -2px);
+}
+
+/* ── Bottom QR & Save Strip ───────────────────── */
+.card-bottom-strip {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #1b1b1e;
+}
+
+.qr-preview-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 4px 8px 4px 4px;
+  border-radius: 8px;
+  transition: background var(--transition);
+}
+
+.qr-preview-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.qr-mini-frame {
+  width: 52px;
+  height: 52px;
+  padding: 3px;
+  border-radius: 6px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.qr-mini-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.qr-preview-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.qr-preview-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.qr-preview-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-light);
+}
+
+.save-vcf-btn {
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  background: #ffffff;
+  color: #000000;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.save-vcf-btn:hover {
+  background: #e5e5e5;
+  transform: translateY(-1px);
+}
+
+/* ── Back Face ────────────────────────────────── */
+.back-qr-wrap {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin: auto 0;
+}
+
+.qr-large-frame {
+  width: 196px;
+  height: 196px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7);
+}
+
+.qr-large-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.qr-mode-switch {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  border: 1px solid #222226;
+  background: #0d0d0f;
+}
+
+.mode-pill {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-mid);
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  transition: color var(--transition), background var(--transition);
+}
+
+.mode-pill.active {
+  background: #ffffff;
+  color: #000000;
+}
+
+.back-identity {
+  text-align: center;
+}
+
+.back-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.back-email {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-mid);
+  margin-top: 2px;
+}
+
+.back-actions {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.back-btn {
+  padding: 9px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid #2b2b30;
+  background: #121214;
+  color: var(--ink-mid);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+
+.back-btn:hover {
+  color: var(--ink);
+  border-color: #4a4a52;
+  background: #1a1a1d;
+}
+
+.back-btn-primary {
+  background: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
+}
+
+.back-btn-primary:hover {
+  background: #e5e5e5;
+  color: #000000;
+  border-color: #e5e5e5;
+}
+
+.stage-caption {
+  position: relative;
+  z-index: 1;
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-light);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-flipper {
+    transition: none;
+  }
+  .card-glare {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .card-tilt {
+    height: 528px;
+  }
+  .card-face {
+    padding: 16px;
+  }
+  .avatar-frame {
+    width: 66px;
+    height: 66px;
+  }
+}
+</style>
