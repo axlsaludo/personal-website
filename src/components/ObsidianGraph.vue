@@ -7,11 +7,36 @@
       </div>
 
       <div class="graph-controls">
-        <div class="zoom-btn-group">
-          <button class="ctrl-btn" @click="zoomIn" title="Zoom in">+</button>
-          <button class="ctrl-btn" @click="zoomOut" title="Zoom out">−</button>
-          <button class="ctrl-btn" @click="resetGraph" title="Reset view">↺ Reset</button>
-        </div>
+        <TooltipProvider :delay-duration="220">
+          <div class="zoom-btn-group">
+            <TooltipRoot>
+              <TooltipTrigger as-child>
+                <button type="button" class="ctrl-btn" aria-label="Zoom in" @click="zoomIn">+</button>
+              </TooltipTrigger>
+              <TooltipPortal>
+                <TooltipContent class="graph-tooltip" :side-offset="6">Zoom in</TooltipContent>
+              </TooltipPortal>
+            </TooltipRoot>
+
+            <TooltipRoot>
+              <TooltipTrigger as-child>
+                <button type="button" class="ctrl-btn" aria-label="Zoom out" @click="zoomOut">−</button>
+              </TooltipTrigger>
+              <TooltipPortal>
+                <TooltipContent class="graph-tooltip" :side-offset="6">Zoom out</TooltipContent>
+              </TooltipPortal>
+            </TooltipRoot>
+
+            <TooltipRoot>
+              <TooltipTrigger as-child>
+                <button type="button" class="ctrl-btn" aria-label="Reset view" @click="resetGraph(true)">↺ Reset</button>
+              </TooltipTrigger>
+              <TooltipPortal>
+                <TooltipContent class="graph-tooltip" :side-offset="6">Reset view</TooltipContent>
+              </TooltipPortal>
+            </TooltipRoot>
+          </div>
+        </TooltipProvider>
       </div>
     </div>
 
@@ -30,6 +55,15 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import * as d3 from 'd3'
+import {
+  TooltipProvider,
+  TooltipRoot,
+  TooltipTrigger,
+  TooltipPortal,
+  TooltipContent,
+} from 'reka-ui'
+import { toast } from 'vue-sonner'
+import { nodesData, edgesData } from '../data/skills.js'
 
 const containerEl = ref(null)
 const viewportEl = ref(null)
@@ -51,85 +85,11 @@ const config = {
 let simulation = null
 let zoomBehavior = null
 let gContainer = null
+let nodeSel = null
+let textSel = null
+let linkSel = null
 let currentNodes = []
 let currentLinks = []
-
-// ── Skills Data Structured by Credly Credentials ──
-const nodesData = [
-  // Primary Domain Hubs
-  { id: 'gcp', label: 'Google Cloud (GCP)' },
-  { id: 'ai', label: 'Artificial Intelligence' },
-  { id: 'networking', label: 'Networking & Systems' },
-
-  // Skills under Google Cloud (ACE, CDL, GCCF, K8s badges)
-  { id: 'gke', label: 'Kubernetes (GKE)' },
-  { id: 'compute', label: 'Compute Engine & VMs' },
-  { id: 'cloud-iam', label: 'Cloud IAM & Security' },
-  { id: 'cloud-vpc', label: 'VPC & Cloud Networking' },
-  { id: 'terraform', label: 'Terraform & IaC' },
-  { id: 'cloud-arch', label: 'Cloud Architecture' },
-  { id: 'storage-db', label: 'Cloud Storage & Databases' },
-  { id: 'monitoring', label: 'Cloud Monitoring & Ops' },
-
-  // Skills under Artificial Intelligence (Gemini Specialist, GenAI Leader, ADK)
-  { id: 'gemini', label: 'Gemini Enterprise' },
-  { id: 'agents', label: 'AI Agent Development' },
-  { id: 'adk', label: 'Agent Development Kit (ADK)' },
-  { id: 'prompt-eng', label: 'Prompt Engineering & LLMs' },
-  { id: 'ai-workflows', label: 'AI Workflow Automation' },
-  { id: 'python', label: 'Python & Scripting' },
-
-  // Skills under Networking & Systems (CCNA Routing, Switching & Wireless)
-  { id: 'ccna', label: 'CCNA Routing & Switching' },
-  { id: 'tcp-ip', label: 'TCP/IP & DNS Architecture' },
-  { id: 'firewalls', label: 'Firewalls & Network Security' },
-  { id: 'wireless', label: 'Wireless Essentials' },
-  { id: 'linux', label: 'Linux Administration' },
-  { id: 'docker', label: 'Docker & Containers' },
-  { id: 'cicd', label: 'CI/CD Automation' }
-]
-
-const edgesData = [
-  // ── Under Google Cloud (GCP) ─────────────────────
-  { source: 'gcp', target: 'gke' },
-  { source: 'gcp', target: 'compute' },
-  { source: 'gcp', target: 'cloud-iam' },
-  { source: 'gcp', target: 'cloud-vpc' },
-  { source: 'gcp', target: 'terraform' },
-  { source: 'gcp', target: 'cloud-arch' },
-  { source: 'gcp', target: 'storage-db' },
-  { source: 'gcp', target: 'monitoring' },
-
-  // ── Under Artificial Intelligence ────────────────
-  { source: 'ai', target: 'gemini' },
-  { source: 'ai', target: 'agents' },
-  { source: 'ai', target: 'adk' },
-  { source: 'ai', target: 'prompt-eng' },
-  { source: 'ai', target: 'ai-workflows' },
-  { source: 'ai', target: 'python' },
-
-  // ── Under Networking & Systems ───────────────────
-  { source: 'networking', target: 'ccna' },
-  { source: 'networking', target: 'tcp-ip' },
-  { source: 'networking', target: 'firewalls' },
-  { source: 'networking', target: 'wireless' },
-  { source: 'networking', target: 'linux' },
-  { source: 'networking', target: 'docker' },
-  { source: 'networking', target: 'cicd' },
-
-  // ── Cross-Domain Structural Links (Interconnected Web) ──
-  { source: 'gcp', target: 'ai' },
-  { source: 'gcp', target: 'networking' },
-  { source: 'gke', target: 'docker' },
-  { source: 'docker', target: 'cicd' },
-  { source: 'terraform', target: 'cicd' },
-  { source: 'agents', target: 'gemini' },
-  { source: 'agents', target: 'adk' },
-  { source: 'agents', target: 'python' },
-  { source: 'cloud-vpc', target: 'ccna' },
-  { source: 'cloud-iam', target: 'firewalls' },
-  { source: 'compute', target: 'linux' }
-]
 
 // ── Graph Initialization (D3 Force Simulation) ─────
 const initGraph = () => {
@@ -233,6 +193,10 @@ const initGraph = () => {
     .attr('pointer-events', 'none')
     .text(d => d.label)
 
+  linkSel = link
+  nodeSel = node
+  textSel = text
+
   // Tick update loop
   simulation.on('tick', () => {
     link
@@ -253,42 +217,10 @@ const initGraph = () => {
   // Hover highlighting
   node
     .on('mouseenter', (event, d) => {
-      const neighborIds = new Set([d.id])
-      currentLinks.forEach(l => {
-        if (l.source.id === d.id) neighborIds.add(l.target.id)
-        if (l.target.id === d.id) neighborIds.add(l.source.id)
-      })
-
-      node
-        .attr('opacity', n => neighborIds.has(n.id) ? 1 : 0.15)
-        .attr('fill', n => n.id === d.id ? '#ffffff' : (neighborIds.has(n.id) ? '#e4e4e7' : '#52525b'))
-
-      text
-        .attr('opacity', n => neighborIds.has(n.id) ? 1 : 0.15)
-        .attr('fill', n => n.id === d.id ? '#ffffff' : (neighborIds.has(n.id) ? '#f4f4f5' : '#71717a'))
-
-      link
-        .attr('stroke', l => (l.source.id === d.id || l.target.id === d.id) ? '#ffffff' : '#27272a')
-        .attr('stroke-opacity', l => (l.source.id === d.id || l.target.id === d.id) ? 0.9 : 0.08)
-        .attr('stroke-width', l => (l.source.id === d.id || l.target.id === d.id) ? 1.6 : 0.8)
+      highlightNodeById(d.id)
     })
     .on('mouseleave', () => {
-      node
-        .attr('opacity', 1)
-        .attr('fill', d => {
-          if (d.linkCount >= 6) return '#f4f4f5'
-          if (d.linkCount >= 3) return '#a1a1aa'
-          return '#71717a'
-        })
-
-      text
-        .attr('opacity', 1)
-        .attr('fill', '#a1a1aa')
-
-      link
-        .attr('stroke', '#38383e')
-        .attr('stroke-opacity', 0.55)
-        .attr('stroke-width', 1)
+      clearHighlight()
     })
 
   // Drag handlers
@@ -310,6 +242,62 @@ const initGraph = () => {
   }
 }
 
+function highlightNodeById(nodeId) {
+  if (!nodeSel || !textSel || !linkSel) return
+  const neighborIds = new Set([nodeId])
+  currentLinks.forEach(l => {
+    const sId = typeof l.source === 'object' ? l.source.id : l.source
+    const tId = typeof l.target === 'object' ? l.target.id : l.target
+    if (sId === nodeId) neighborIds.add(tId)
+    if (tId === nodeId) neighborIds.add(sId)
+  })
+
+  nodeSel
+    .attr('opacity', n => neighborIds.has(n.id) ? 1 : 0.15)
+    .attr('fill', n => n.id === nodeId ? '#ffffff' : (neighborIds.has(n.id) ? '#e4e4e7' : '#52525b'))
+
+  textSel
+    .attr('opacity', n => neighborIds.has(n.id) ? 1 : 0.15)
+    .attr('fill', n => n.id === nodeId ? '#ffffff' : (neighborIds.has(n.id) ? '#f4f4f5' : '#71717a'))
+
+  linkSel
+    .attr('stroke', l => {
+      const sId = typeof l.source === 'object' ? l.source.id : l.source
+      const tId = typeof l.target === 'object' ? l.target.id : l.target
+      return (sId === nodeId || tId === nodeId) ? '#ffffff' : '#27272a'
+    })
+    .attr('stroke-opacity', l => {
+      const sId = typeof l.source === 'object' ? l.source.id : l.source
+      const tId = typeof l.target === 'object' ? l.target.id : l.target
+      return (sId === nodeId || tId === nodeId) ? 0.9 : 0.08
+    })
+    .attr('stroke-width', l => {
+      const sId = typeof l.source === 'object' ? l.source.id : l.source
+      const tId = typeof l.target === 'object' ? l.target.id : l.target
+      return (sId === nodeId || tId === nodeId) ? 1.6 : 0.8
+    })
+}
+
+function clearHighlight() {
+  if (!nodeSel || !textSel || !linkSel) return
+  nodeSel
+    .attr('opacity', 1)
+    .attr('fill', d => {
+      if (d.linkCount >= 6) return '#f4f4f5'
+      if (d.linkCount >= 3) return '#a1a1aa'
+      return '#71717a'
+    })
+
+  textSel
+    .attr('opacity', 1)
+    .attr('fill', '#a1a1aa')
+
+  linkSel
+    .attr('stroke', '#38383e')
+    .attr('stroke-opacity', 0.55)
+    .attr('stroke-width', 1)
+}
+
 // ── Controls: Zoom & Reset ─────────────────────────
 const zoomIn = () => {
   if (!svgEl.value || !zoomBehavior) return
@@ -321,10 +309,12 @@ const zoomOut = () => {
   d3.select(svgEl.value).transition().duration(250).call(zoomBehavior.scaleBy, 0.77)
 }
 
-const resetGraph = () => {
+const resetGraph = (notify = false) => {
+  clearHighlight()
   if (!svgEl.value || !zoomBehavior) return
   d3.select(svgEl.value).transition().duration(350).call(zoomBehavior.transform, d3.zoomIdentity)
   if (simulation) simulation.alpha(0.6).restart()
+  if (notify) toast('Skill graph reset')
 }
 
 const handleResize = () => {
@@ -351,6 +341,26 @@ onUnmounted(() => {
   overflow: hidden;
   position: relative;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.obsidian-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -30%;
+  width: 30%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  pointer-events: none;
+  animation: border-beam-sweep 8s ease-in-out infinite;
+  z-index: 3;
+}
+
+@keyframes border-beam-sweep {
+  0%, 15% { left: -30%; opacity: 0; }
+  30% { opacity: 1; }
+  70% { opacity: 1; }
+  85%, 100% { left: 100%; opacity: 0; }
 }
 
 /* ── Obsidian Header ─────────────────────────────── */
@@ -452,5 +462,40 @@ onUnmounted(() => {
 @media (max-width: 640px) {
   .graph-header { padding: 12px 14px; }
   .graph-hint { font-size: 9px; left: 14px; bottom: 8px; }
+}
+
+:global(.graph-tooltip) {
+  z-index: 150;
+  padding: 5px 9px;
+  border-radius: 5px;
+  background: #111111;
+  border: 1px solid #2a2a2a;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.2;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.65);
+  animation: tooltip-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .obsidian-container::after {
+    display: none;
+    animation: none;
+  }
+  :global(.graph-tooltip) {
+    animation: none;
+  }
 }
 </style>
