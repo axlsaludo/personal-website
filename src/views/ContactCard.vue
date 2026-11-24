@@ -4,6 +4,7 @@
 
     <div
       class="card-stage"
+      @pointerdown="maybeRequestGyroPermission"
       @pointermove="onPointerMove"
       @pointerleave="onPointerLeave"
     >
@@ -11,7 +12,16 @@
         class="card-tilt"
         :style="tiltStyle"
       >
-        <div class="card-flipper" :class="{ 'is-flipped': flipped }">
+        <div
+          class="card-flipper"
+          :class="{ 'is-flipped': flipped }"
+          role="button"
+          tabindex="0"
+          :aria-label="flipped ? 'Flip card to front' : 'Flip card to QR code'"
+          @click="toggleFlip"
+          @keydown.enter.self="toggleFlip"
+          @keydown.space.self.prevent="toggleFlip"
+        >
           <!-- ── Front Face ───────────────────────────── -->
           <section
             class="card-face card-face-front"
@@ -19,32 +29,17 @@
           >
             <div class="card-glare" :style="glareStyle" aria-hidden="true"></div>
 
-            <div class="card-top-meta">
-              <div class="meta-pills">
-                <span class="handle-chip">0xffxa</span>
-                <span class="loc-chip">
-                  <span class="status-dot" aria-hidden="true"></span>
-                  Manila, PH
-                </span>
-              </div>
-              <button
-                type="button"
-                class="flip-btn"
-                aria-label="Show large QR code"
-                @click="flipped = true"
-              >
-                QR ↻
-              </button>
+            <!-- Top ID Portrait -->
+            <div class="id-photo-wrap">
+              <img
+                src="/contact-card.png"
+                :alt="displayName"
+                class="id-photo"
+              />
             </div>
 
-            <div class="identity-block">
-              <div class="avatar-frame">
-                <img
-                  src="/contact-card.png"
-                  :alt="displayName"
-                  class="avatar-img"
-                />
-              </div>
+            <!-- Front Card Body -->
+            <div class="card-front-body">
               <div class="identity-text">
                 <h1 class="card-name">{{ displayName }}</h1>
                 <p class="card-subtitle">Cloud Developer &amp; AI Engineer</p>
@@ -52,67 +47,69 @@
                   {{ currentJob.role }} · {{ currentJob.company }}
                 </p>
               </div>
-            </div>
 
-            <div class="contact-stack">
-              <div class="contact-row email-row">
-                <div class="contact-row-main">
-                  <span class="row-label">Email</span>
-                  <a :href="`mailto:${email}`" class="row-value mono">{{ email }}</a>
+              <div class="contact-stack">
+                <div class="contact-row email-row">
+                  <div class="contact-row-main">
+                    <span class="row-label">Email</span>
+                    <a
+                      :href="`mailto:${email}`"
+                      class="row-value mono"
+                      @click.stop
+                    >
+                      {{ email }}
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    class="mini-copy-btn"
+                    @click.stop="handleCopyEmail"
+                  >
+                    {{ copied ? 'Copied' : 'Copy' }}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  class="mini-copy-btn"
-                  @click="handleCopyEmail"
+
+                <a
+                  v-for="s in socials"
+                  :key="s.label"
+                  :href="s.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="contact-row social-row"
+                  @click.stop
                 >
-                  {{ copied ? 'Copied' : 'Copy' }}
-                </button>
+                  <div class="contact-row-main">
+                    <span class="row-label">{{ s.label }}</span>
+                    <span class="row-value">{{ formatHandle(s.url) }}</span>
+                  </div>
+                  <span class="row-arrow" aria-hidden="true">↗</span>
+                </a>
               </div>
 
-              <a
-                v-for="s in socials"
-                :key="s.label"
-                :href="s.url"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="contact-row social-row"
-              >
-                <div class="contact-row-main">
-                  <span class="row-label">{{ s.label }}</span>
-                  <span class="row-value">{{ formatHandle(s.url) }}</span>
+              <div class="card-bottom-strip">
+                <div class="qr-preview-hint">
+                  <span class="qr-mini-frame">
+                    <img
+                      v-if="qrDataUrl"
+                      :src="qrDataUrl"
+                      alt="Contact QR code preview"
+                      class="qr-mini-img"
+                    />
+                  </span>
+                  <span class="qr-preview-copy">
+                    <span class="qr-preview-title">Scan QR</span>
+                    <span class="qr-preview-sub">Click card to flip</span>
+                  </span>
                 </div>
-                <span class="row-arrow" aria-hidden="true">↗</span>
-              </a>
-            </div>
 
-            <div class="card-bottom-strip">
-              <button
-                type="button"
-                class="qr-preview-btn"
-                aria-label="Enlarge QR code"
-                @click="flipped = true"
-              >
-                <span class="qr-mini-frame">
-                  <img
-                    v-if="qrDataUrl"
-                    :src="qrDataUrl"
-                    alt="Contact QR code preview"
-                    class="qr-mini-img"
-                  />
-                </span>
-                <span class="qr-preview-copy">
-                  <span class="qr-preview-title">Scan QR</span>
-                  <span class="qr-preview-sub">Tap to enlarge</span>
-                </span>
-              </button>
-
-              <button
-                type="button"
-                class="save-vcf-btn"
-                @click="downloadVCard"
-              >
-                Save .vcf
-              </button>
+                <button
+                  type="button"
+                  class="save-vcf-btn"
+                  @click.stop="downloadVCard"
+                >
+                  Save .vcf
+                </button>
+              </div>
             </div>
           </section>
 
@@ -122,18 +119,6 @@
             :aria-hidden="!flipped"
           >
             <div class="card-glare" :style="glareStyle" aria-hidden="true"></div>
-
-            <div class="card-top-meta">
-              <span class="handle-chip">0xffxa · DIRECT CARD</span>
-              <button
-                type="button"
-                class="flip-btn"
-                aria-label="Back to contact details"
-                @click="flipped = false"
-              >
-                Front ↻
-              </button>
-            </div>
 
             <div class="back-qr-wrap">
               <div class="qr-large-frame">
@@ -150,7 +135,7 @@
                   type="button"
                   class="mode-pill"
                   :class="{ active: qrMode === 'vcard' }"
-                  @click="qrMode = 'vcard'"
+                  @click.stop="qrMode = 'vcard'"
                 >
                   Save Contact
                 </button>
@@ -158,7 +143,7 @@
                   type="button"
                   class="mode-pill"
                   :class="{ active: qrMode === 'url' }"
-                  @click="qrMode = 'url'"
+                  @click.stop="qrMode = 'url'"
                 >
                   Card Link
                 </button>
@@ -171,10 +156,10 @@
             </div>
 
             <div class="back-actions">
-              <button type="button" class="back-btn" @click="handleCopyEmail">
+              <button type="button" class="back-btn" @click.stop="handleCopyEmail">
                 {{ copied ? 'Copied ✓' : 'Copy email' }}
               </button>
-              <button type="button" class="back-btn back-btn-primary" @click="downloadVCard">
+              <button type="button" class="back-btn back-btn-primary" @click.stop="downloadVCard">
                 Download .vcf
               </button>
             </div>
@@ -183,7 +168,7 @@
       </div>
     </div>
 
-    <p class="stage-caption">Tilt card to inspect · Tap QR to flip</p>
+    <p class="stage-caption">Move to tilt · Click card to flip</p>
   </main>
 </template>
 
@@ -212,6 +197,11 @@ const copied = ref(false)
 let copyTimer = null
 let rafId = null
 let reduceMotion = false
+let gyroActive = false
+let gyroRequested = false
+let baseBeta = null
+let baseGamma = null
+let isPointerHovering = false
 
 const targetTiltX = ref(0)
 const targetTiltY = ref(0)
@@ -220,6 +210,11 @@ const tiltY = ref(0)
 const glareX = ref(50)
 const glareY = ref(50)
 const glareOpacity = ref(0)
+
+function toggleFlip() {
+  maybeRequestGyroPermission()
+  flipped.value = !flipped.value
+}
 
 function formatHandle(url) {
   return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
@@ -251,7 +246,7 @@ const qrPayload = computed(() => {
 async function generateQr() {
   try {
     qrDataUrl.value = await QRCode.toDataURL(qrPayload.value, {
-      width: 420,
+      width: 440,
       margin: 2,
       errorCorrectionLevel: 'M',
       color: {
@@ -290,7 +285,7 @@ function downloadVCard() {
 }
 
 function animateTilt() {
-  const ease = 0.16
+  const ease = 0.1
   tiltX.value += (targetTiltX.value - tiltX.value) * ease
   tiltY.value += (targetTiltY.value - tiltY.value) * ease
 
@@ -315,16 +310,17 @@ function scheduleTiltFrame() {
 }
 
 function onPointerMove(event) {
-  if (reduceMotion) return
+  if (reduceMotion || event.pointerType === 'touch') return
   const rect = event.currentTarget?.getBoundingClientRect()
   if (!rect) return
 
+  isPointerHovering = true
   const px = (event.clientX - rect.left) / rect.width
   const py = (event.clientY - rect.top) / rect.height
   const clampedX = Math.max(0, Math.min(1, px))
   const clampedY = Math.max(0, Math.min(1, py))
 
-  const maxDeg = 11
+  const maxDeg = 5.5
   targetTiltY.value = (clampedX - 0.5) * 2 * maxDeg
   targetTiltX.value = -(clampedY - 0.5) * 2 * maxDeg
   glareX.value = clampedX * 100
@@ -334,10 +330,61 @@ function onPointerMove(event) {
 }
 
 function onPointerLeave() {
+  isPointerHovering = false
   targetTiltX.value = 0
   targetTiltY.value = 0
   glareOpacity.value = 0
   scheduleTiltFrame()
+}
+
+function onDeviceOrientation(event) {
+  if (reduceMotion || isPointerHovering) return
+  if (event.beta == null || event.gamma == null) return
+
+  if (baseBeta === null || baseGamma === null) {
+    baseBeta = event.beta
+    baseGamma = event.gamma
+  }
+
+  const maxGyroDeg = 6
+  const dy = Math.max(-maxGyroDeg, Math.min(maxGyroDeg, (event.gamma - baseGamma) * 0.22))
+  const dx = Math.max(-maxGyroDeg, Math.min(maxGyroDeg, -(event.beta - baseBeta) * 0.22))
+
+  targetTiltY.value = dy
+  targetTiltX.value = dx
+  glareX.value = 50 + (dy / maxGyroDeg) * 35
+  glareY.value = 50 - (dx / maxGyroDeg) * 35
+  glareOpacity.value = 0.75
+  scheduleTiltFrame()
+}
+
+function attachGyroListener() {
+  if (gyroActive || typeof window === 'undefined') return
+  window.addEventListener('deviceorientation', onDeviceOrientation, { passive: true })
+  gyroActive = true
+}
+
+function enableGyro() {
+  if (typeof window === 'undefined' || !('DeviceOrientationEvent' in window) || reduceMotion) return
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') return
+  attachGyroListener()
+}
+
+async function maybeRequestGyroPermission() {
+  if (gyroActive || gyroRequested || reduceMotion) return
+  if (typeof window === 'undefined' || !('DeviceOrientationEvent' in window)) return
+  if (typeof DeviceOrientationEvent.requestPermission !== 'function') {
+    attachGyroListener()
+    return
+  }
+
+  gyroRequested = true
+  try {
+    const res = await DeviceOrientationEvent.requestPermission()
+    if (res === 'granted') {
+      attachGyroListener()
+    }
+  } catch {}
 }
 
 const tiltStyle = computed(() => ({
@@ -354,12 +401,16 @@ onMounted(() => {
   if (typeof window !== 'undefined' && window.matchMedia) {
     reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   }
+  enableGyro()
   generateQr()
 })
 
 onUnmounted(() => {
   clearTimeout(copyTimer)
   if (rafId !== null) cancelAnimationFrame(rafId)
+  if (gyroActive && typeof window !== 'undefined') {
+    window.removeEventListener('deviceorientation', onDeviceOrientation)
+  }
 })
 </script>
 
@@ -372,15 +423,15 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 28px 16px;
+  padding: 24px 16px;
   background: #000000;
   overflow: hidden;
 }
 
 .ambient-glow {
   position: absolute;
-  width: 560px;
-  height: 560px;
+  width: 620px;
+  height: 620px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.045) 0%, transparent 66%);
   pointer-events: none;
@@ -395,8 +446,8 @@ onUnmounted(() => {
 }
 
 .card-tilt {
-  width: min(360px, calc(100vw - 32px));
-  height: 540px;
+  width: min(400px, calc(100vw - 32px));
+  height: 644px;
   transform-style: preserve-3d;
   will-change: transform;
 }
@@ -407,6 +458,7 @@ onUnmounted(() => {
   height: 100%;
   transform-style: preserve-3d;
   transition: transform 680ms cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
 }
 
 .card-flipper.is-flipped {
@@ -418,8 +470,6 @@ onUnmounted(() => {
   inset: 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 20px;
   border-radius: 16px;
   border: 1px solid #242424;
   background: linear-gradient(160deg, #111111 0%, #09090b 55%, #050505 100%);
@@ -433,6 +483,7 @@ onUnmounted(() => {
 }
 
 .card-face-front {
+  padding: 0;
   pointer-events: auto;
 }
 
@@ -441,6 +492,8 @@ onUnmounted(() => {
 }
 
 .card-face-back {
+  padding: 24px 22px;
+  justify-content: space-between;
   transform: rotateY(180deg);
   pointer-events: none;
 }
@@ -456,121 +509,64 @@ onUnmounted(() => {
   pointer-events: none;
   opacity: var(--glare-opacity, 0);
   background: radial-gradient(
-    260px circle at var(--gx, 50%) var(--gy, 50%),
+    280px circle at var(--gx, 50%) var(--gy, 50%),
     rgba(255, 255, 255, 0.085),
     transparent 65%
   );
   transition: opacity 260ms ease;
-  z-index: 2;
+  z-index: 4;
 }
 
-/* ── Top Meta Bar ─────────────────────────────── */
-.card-top-meta {
+/* ── Top ID Portrait ──────────────────────────── */
+.id-photo-wrap {
   position: relative;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.meta-pills {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.handle-chip {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  color: var(--ink-mid);
-  padding: 3px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.loc-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-sans);
-  font-size: 10.5px;
-  color: var(--ink-light);
-}
-
-.status-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #4ade80;
-}
-
-.flip-btn {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--ink-mid);
-  padding: 4px 9px;
-  border-radius: var(--radius-pill);
-  border: 1px solid #262626;
-  background: rgba(255, 255, 255, 0.03);
-  transition: color var(--transition), border-color var(--transition), background var(--transition);
-}
-
-.flip-btn:hover {
-  color: var(--ink);
-  border-color: #3f3f46;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-/* ── Identity Header ──────────────────────────── */
-.identity-block {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 0 8px;
-  transform: translateZ(16px);
-}
-
-.avatar-frame {
-  width: 74px;
-  height: 74px;
+  width: 100%;
+  height: 232px;
   flex-shrink: 0;
-  border-radius: 11px;
-  overflow: hidden;
-  border: 1px solid #2a2a2a;
   background: #000000;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.65);
+  border-bottom: 1px solid #1b1b1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
-.avatar-img {
+.id-photo {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center 22%;
+  object-fit: contain;
+  object-position: center;
   display: block;
 }
 
+/* ── Front Body ───────────────────────────────── */
+.card-front-body {
+  position: relative;
+  z-index: 3;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 22px 20px;
+}
+
 .identity-text {
-  min-width: 0;
+  transform: translateZ(14px);
 }
 
 .card-name {
   font-family: var(--font-sans);
-  font-size: 18px;
+  font-size: 21px;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
   color: var(--ink);
 }
 
 .card-subtitle {
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: 14px;
+  font-size: 15px;
   color: #e4e4e7;
   line-height: 1.3;
   margin-top: 2px;
@@ -578,7 +574,7 @@ onUnmounted(() => {
 
 .card-role {
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-mid);
   margin-top: 4px;
   white-space: nowrap;
@@ -588,8 +584,6 @@ onUnmounted(() => {
 
 /* ── Contact Info Stack ───────────────────────── */
 .contact-stack {
-  position: relative;
-  z-index: 3;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -633,7 +627,7 @@ onUnmounted(() => {
 }
 
 .row-value {
-  font-size: 12px;
+  font-size: 12.5px;
   color: #e4e4e7;
   white-space: nowrap;
   overflow: hidden;
@@ -642,7 +636,7 @@ onUnmounted(() => {
 
 .row-value.mono {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .mini-copy-btn {
@@ -677,8 +671,6 @@ onUnmounted(() => {
 
 /* ── Bottom QR & Save Strip ───────────────────── */
 .card-bottom-strip {
-  position: relative;
-  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -687,18 +679,10 @@ onUnmounted(() => {
   border-top: 1px solid #1b1b1e;
 }
 
-.qr-preview-btn {
+.qr-preview-hint {
   display: flex;
   align-items: center;
   gap: 10px;
-  text-align: left;
-  padding: 4px 8px 4px 4px;
-  border-radius: 8px;
-  transition: background var(--transition);
-}
-
-.qr-preview-btn:hover {
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .qr-mini-frame {
@@ -738,7 +722,7 @@ onUnmounted(() => {
 }
 
 .save-vcf-btn {
-  padding: 8px 14px;
+  padding: 8px 15px;
   border-radius: var(--radius-pill);
   background: #ffffff;
   color: #000000;
@@ -761,15 +745,15 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   margin: auto 0;
 }
 
 .qr-large-frame {
-  width: 196px;
-  height: 196px;
-  padding: 10px;
-  border-radius: 12px;
+  width: 220px;
+  height: 220px;
+  padding: 12px;
+  border-radius: 14px;
   background: #ffffff;
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7);
 }
@@ -808,14 +792,14 @@ onUnmounted(() => {
 }
 
 .back-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink);
 }
 
 .back-email {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-mid);
   margin-top: 2px;
 }
@@ -829,7 +813,7 @@ onUnmounted(() => {
 }
 
 .back-btn {
-  padding: 9px 12px;
+  padding: 10px 12px;
   border-radius: var(--radius-pill);
   border: 1px solid #2b2b30;
   background: #121214;
@@ -862,7 +846,7 @@ onUnmounted(() => {
 .stage-caption {
   position: relative;
   z-index: 1;
-  margin-top: 14px;
+  margin-top: 12px;
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.04em;
@@ -879,16 +863,15 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 400px) {
+@media (max-width: 440px) {
   .card-tilt {
-    height: 528px;
+    height: 606px;
   }
-  .card-face {
-    padding: 16px;
+  .id-photo-wrap {
+    height: 204px;
   }
-  .avatar-frame {
-    width: 66px;
-    height: 66px;
+  .card-front-body {
+    padding: 14px 18px 18px;
   }
 }
 </style>
