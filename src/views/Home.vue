@@ -3,7 +3,7 @@
     <div class="container">
 
       <!-- ── Hero Section with Background Roman Columns ─ -->
-      <section class="hero reveal" ref="heroEl">
+      <section id="hero" class="hero reveal" ref="heroEl">
 
         <!-- Background Roman Columns (static atmospheric backdrop, no hover animations) -->
         <div class="hero-bg-columns" aria-hidden="true">
@@ -21,7 +21,9 @@
 
           <!-- Prominent Name Highlight -->
           <div class="hero-intro">
-            <span class="hi name-highlight">{{ personal?.name || 'Kurt Axl Saludo' }}</span>
+            <span class="hi name-highlight">
+              <span class="shiny-text">{{ personal?.name || 'Kurt Axl Saludo' }}</span>
+            </span>
           </div>
 
           <!-- Headline -->
@@ -37,9 +39,9 @@
 
           <!-- CTAs -->
           <div class="hero-ctas">
-            <a :href="`mailto:${personal?.email}`" class="cta-primary">
+            <button type="button" class="cta-primary" @click="openContact">
               Get in touch <span class="arrow">→</span>
-            </a>
+            </button>
             <a v-for="s in personal?.socials?.slice(0,2)" :key="s.label"
                :href="s.url" target="_blank" rel="noopener" class="text-arrow-link">
               <span class="tal-text">{{ s.label }}</span>
@@ -54,7 +56,7 @@
       <div class="h-divider"></div>
 
       <!-- ── About / Experience / Certs ────────── -->
-      <section class="body-section reveal" ref="bodyEl">
+      <section id="about" class="body-section reveal" ref="bodyEl">
         <div class="body-grid">
 
           <!-- Col left: statement with name & experience -->
@@ -62,7 +64,7 @@
             <p class="label statement-label">About</p>
             <p class="statement-text">
               I'm <strong class="name-mention">{{ personal?.name || 'Kurt Axl Saludo' }}</strong>.
-              With <span class="hi">{{ experienceDuration }}</span> of experience, I've always had a passion for building things.
+              With <span class="hi exp-hi"><NumberFlow :value="displayedExp" :format="expNumberFormat" /> {{ expData.unit }}</span> of experience, I've always had a passion for building things.
               Whether it's crafting resilient infrastructure, automating workflows, or designing clean architectures,
               I believe that <strong>good engineering</strong> is about solving real problems —
               it shapes products, informs scale, and inspires trust.
@@ -75,29 +77,36 @@
             <!-- Current role -->
             <div class="detail-block" v-if="currentJob">
               <p class="label detail-label">Current Role</p>
-              <div class="role-card">
+              <SpotlightCard class="role-card">
                 <span class="role-title">{{ currentJob.role }}</span>
                 <span class="role-company">{{ currentJob.company }} · {{ currentJob.period }}</span>
-              </div>
+              </SpotlightCard>
             </div>
 
             <!-- Certifications -->
             <div class="detail-block" style="margin-top: 32px;">
               <p class="label detail-label">Certifications</p>
-              <div v-if="loading" class="loading-text">Fetching from Credly...</div>
+              <div v-if="loading" class="certs-list" aria-label="Loading certifications">
+                <div v-for="n in 3" :key="n" class="cert-row cert-skeleton">
+                  <span class="skeleton skel-icon"></span>
+                  <span class="skeleton skel-line"></span>
+                </div>
+              </div>
               <div v-else-if="error" class="loading-text" style="color: #663333;">Unavailable</div>
               <div v-else class="certs-list">
-                <a
+                <SpotlightCard
+                  as="a"
                   v-for="badge in topBadges"
                   :key="badge.id"
                   :href="personal?.socials?.find(s => s.label === 'Credly')?.url"
                   target="_blank"
+                  rel="noopener"
                   class="cert-row"
                 >
                   <img v-if="badge.image_url" :src="badge.image_url" alt="" class="cert-img" />
                   <span class="cert-name">{{ badge.badge_template.name }}</span>
                   <span class="cert-arrow">→</span>
-                </a>
+                </SpotlightCard>
               </div>
               <a
                 :href="personal?.socials?.find(s => s.label === 'Credly')?.url"
@@ -118,7 +127,7 @@
       <div class="h-divider"></div>
 
       <!-- ── Obsidian Skill Graph View ─────────── -->
-      <section class="graph-section reveal" ref="graphEl">
+      <section id="skill-graph" class="graph-section reveal" ref="graphEl">
         <ObsidianGraph />
       </section>
 
@@ -128,9 +137,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import NumberFlow from '@number-flow/vue'
 import { experience } from '../portfolio.config.js'
 import { useCredly } from '../composables/useCredly.js'
+import { openContact } from '../composables/useUI.js'
 import ObsidianGraph from '../components/ObsidianGraph.vue'
+import SpotlightCard from '../components/SpotlightCard.vue'
 
 defineProps({ personal: Object })
 
@@ -139,16 +151,19 @@ const { badges, loading, error, fetchBadges } = useCredly()
 const topBadges = computed(() => badges.value.slice(0, 3))
 
 const startDate = new Date('2025-10-01')
-const experienceDuration = computed(() => {
+const expData = computed(() => {
   const now = new Date()
   const diffMonths = (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth())
   if (diffMonths < 12) {
     const m = Math.max(1, diffMonths)
-    return `${m} month${m !== 1 ? 's' : ''}`
+    return { value: m, unit: `month${m !== 1 ? 's' : ''}` }
   }
-  const diffYears = (diffMonths / 12).toFixed(1).replace('.0', '')
-  return `${diffYears} year${diffYears !== '1' ? 's' : ''}`
+  const y = Number((diffMonths / 12).toFixed(1))
+  return { value: y, unit: `year${y !== 1 ? 's' : ''}` }
 })
+
+const expNumberFormat = { maximumFractionDigits: 1 }
+const displayedExp = ref(0)
 
 const heroEl  = ref(null)
 const bodyEl  = ref(null)
@@ -158,7 +173,12 @@ onMounted(() => {
   fetchBadges()
   ;[heroEl, bodyEl, graphEl].forEach((el, i) => {
     if (!el.value) return
-    setTimeout(() => el.value.classList.add('visible'), 80 + i * 140)
+    setTimeout(() => {
+      el.value.classList.add('visible')
+      if (el === bodyEl) {
+        displayedExp.value = expData.value.value
+      }
+    }, 80 + i * 140)
   })
 })
 </script>
@@ -238,6 +258,21 @@ onMounted(() => {
   border-radius: 4px;
 }
 
+.shiny-text {
+  display: inline-block;
+  background: linear-gradient(110deg, #bdbdbd 35%, #ffffff 50%, #bdbdbd 65%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shiny-sweep 6s ease-in-out infinite;
+}
+
+@keyframes shiny-sweep {
+  0%, 100% { background-position: 180% 0; }
+  50% { background-position: -80% 0; }
+}
+
 .hero-headline {
   font-family: var(--font-sans);
   font-size: clamp(2.4rem, 5.5vw, 4.4rem);
@@ -278,6 +313,8 @@ onMounted(() => {
 }
 
 .cta-primary {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -289,6 +326,18 @@ onMounted(() => {
   font-size: 13px;
   font-weight: 500;
   transition: background 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+}
+.cta-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 520ms cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+.cta-primary:hover::before {
+  transform: translateX(120%);
 }
 .cta-primary:hover {
   background: #e5e5e5;
@@ -350,6 +399,12 @@ onMounted(() => {
   font-size: 15px;
   line-height: 1.85;
   color: var(--ink-mid);
+}
+.exp-hi {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
 }
 .name-mention {
   color: var(--ink);
@@ -437,6 +492,37 @@ onMounted(() => {
 .cert-row:hover .cert-arrow {
   transform: translateX(4px);
   color: var(--ink-mid);
+}
+
+.cert-skeleton {
+  cursor: default;
+}
+.cert-skeleton:hover {
+  transform: none;
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+.skel-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.skel-line {
+  height: 12px;
+  flex: 1;
+  max-width: 72%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shiny-text {
+    animation: none;
+    background: none;
+    color: var(--ink);
+  }
+  .cta-primary::before {
+    display: none;
+  }
 }
 
 /* ── Graph Section ────────────────────── */
