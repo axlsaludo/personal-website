@@ -149,6 +149,65 @@ button { font-family: var(--font-sans); cursor: pointer; border: none; backgroun
   color: #fff;
 }
 
+/* ── Accessibility & Focus ────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:focus-visible {
+  outline: 1.5px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+}
+
+/* ── Skeleton ─────────────────────────── */
+.skeleton {
+  display: inline-block;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #141414 25%, #1d1d1d 50%, #141414 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Sonner Toast (Monochrome Dark) ───── */
+[data-sonner-toaster] {
+  font-family: var(--font-sans) !important;
+}
+
+[data-sonner-toast] {
+  background: #0c0c0c !important;
+  border: 1px solid #242424 !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75) !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: #999999 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: #161616;
+  }
+  .reveal {
+    transition: none;
+    transform: none;
+  }
+}
+
 /* ── Responsive ───────────────────────── */
 @media (max-width: 768px) {
   .container { padding: 0 20px; }
